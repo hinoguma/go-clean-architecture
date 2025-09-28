@@ -14,6 +14,13 @@ func (req AdaptedRequest) GetStructuredParam(key string) (interface{}, bool) {
 	return v, ok
 }
 
+func (req AdaptedRequest) AddStructuredParam(key string, value interface{}) {
+	if req.structuredParams == nil {
+		req.structuredParams = make(map[string]interface{})
+	}
+	req.structuredParams[key] = value
+}
+
 type RequestAdapter interface {
 	Do() (AdaptedRequest, error)
 }
