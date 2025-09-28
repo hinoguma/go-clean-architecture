@@ -1,4 +1,4 @@
-package log
+package infrastructure
 
 import "app/crosscutting"
 

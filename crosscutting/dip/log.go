@@ -2,9 +2,9 @@ package dip
 
 import (
 	"app/crosscutting"
-	"app/infrastructure/log"
+	"app/infrastructure"
 )
 
 func NewLogger() crosscutting.Logger {
-	return log.NewCloudWatchLogger()
+	return infrastructure.NewCloudWatchLogger()
 }
