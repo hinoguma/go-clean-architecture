@@ -1,24 +1,23 @@
-package crosscutting
+package utils
 
 import (
-	"app/crosscutting/infrainterface"
 	"context"
 	"encoding/json"
 	"fmt"
 )
 
-func SetGlobalLogger(logger infrainterface.Logger) {
-	globalLogger = logger
+type LogLevel string
+
+func (v LogLevel) String() string {
+	return string(v)
 }
 
-var globalLogger infrainterface.Logger = NewStdLogger()
-
-func LogInfo(ctx context.Context, req infrainterface.LogRequest) {
-	if globalLogger == nil {
-		return
-	}
-	globalLogger.Info(ctx, req)
-}
+const (
+	LogLevelInfo  LogLevel = "INFO"
+	LogLevelError LogLevel = "ERROR"
+	LogLevelDebug LogLevel = "DEBUG"
+	LogLevelFatal LogLevel = "FATAL"
+)
 
 type LogRequest struct {
 	RequestID  string                 `json:"requestId,omitempty"`
@@ -63,11 +62,10 @@ func (req *LogRequest) ToValue() LogRequest {
 	return *req
 }
 
-func (req LogRequest) LogJson(level string) infrainterface.LogJson {
+func (req LogRequest) LogJson() LogJson {
 	return LogJson{
 		RequestID:  req.RequestID,
 		Message:    req.Message,
-		Level:      level,
 		Time:       req.Time,
 		Additional: req.Additional,
 	}
@@ -76,9 +74,19 @@ func (req LogRequest) LogJson(level string) infrainterface.LogJson {
 type LogJson struct {
 	RequestID  string                 `json:"requestId,omitempty"`
 	Message    string                 `json:"message"`
-	Level      string                 `json:"level"`
+	Level      LogLevel               `json:"level"`
 	Time       string                 `json:"time"`
 	Additional map[string]interface{} `json:"additional,omitempty"`
+}
+
+func (lj *LogJson) WithRequestIDByCtx(ctx context.Context) *LogJson {
+	lj.RequestID = GetRequestID(ctx)
+	return lj
+}
+
+func (lj *LogJson) WithLevel(level LogLevel) *LogJson {
+	lj.Level = level
+	return lj
 }
 
 func (lj LogJson) JsonString() string {
@@ -95,25 +103,4 @@ func (lj LogJson) JsonString() string {
 		)
 	}
 	return string(b)
-}
-
-type StdLogger struct {
-}
-
-func NewStdLogger() infrainterface.Logger {
-	return StdLogger{}
-}
-
-func (s StdLogger) Info(ctx context.Context, req infrainterface.LogRequest) {
-	logjson := req.LogJson("INFO")
-	fmt.Println(logjson.JsonString())
-}
-func (s StdLogger) Error(ctx context.Context, req infrainterface.LogRequest) {
-	logjson := req.LogJson("ERROR")
-	fmt.Println(logjson.JsonString())
-}
-
-func (s StdLogger) Debug(ctx context.Context, req infrainterface.LogRequest) {
-	logjson := req.LogJson("DEBUG")
-	fmt.Println(logjson.JsonString())
 }
