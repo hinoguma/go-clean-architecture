@@ -2,6 +2,7 @@ package infra
 
 import (
 	"app/crosscutting/logger/infrainterface"
+	"app/crosscutting/timegenerator"
 	"app/crosscutting/utils"
 	"context"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -62,7 +63,7 @@ func (logger cloudWatchLogger) logJsonToPutLogEventsInput(lg utils.LogJson) clou
 		LogEvents: []types.InputLogEvent{
 			{
 				Message:   aws.String(lg.JsonString()),
-				Timestamp: aws.Int64(utils.GetNowUnixTime().Int64())},
+				Timestamp: aws.Int64(timegenerator.NowTs().Int64())},
 		},
 	}
 }
