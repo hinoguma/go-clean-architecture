@@ -1,12 +1,35 @@
 package adapter
 
 type AdaptedRequest struct {
+	From               RequestFrom
 	requestID          string
 	requestIP          string
 	authorizationToken string
 	unstructuredParams string
 	structuredParams   map[string]interface{}
 	files              map[string][]byte
+
+	// HTTP Request
+	HTTPRequest HTTPRequest
+
+	// Command Line Interface
+	CLIArguments []CLIArgument
+}
+
+func (req AdaptedRequest) IsHttpRequest() bool {
+	return req.IsHTTPServerRequest() || req.IsAPIGatewayRequest()
+}
+
+func (req AdaptedRequest) IsAPIGatewayRequest() bool {
+	return req.From == RequestFromAPIGateway
+}
+
+func (req AdaptedRequest) IsHTTPServerRequest() bool {
+	return req.From == RequestFromHTTPServer
+}
+
+func (req AdaptedRequest) IsCLIRequest() bool {
+	return req.From == RequestFromCLI
 }
 
 func (req AdaptedRequest) GetStructuredParam(key string) (interface{}, bool) {
@@ -52,7 +75,7 @@ type RequestAdapter interface {
 //	Identity          APIGatewayRequestIdentity `json:"identity"`
 //	ResourcePath      string                    `json:"resourcePath"`
 //	Path              string                    `json:"path"`
-//	Authorizer        map[string]interface{}    `json:"authorizer"`
+//	Authorizer        map[string]infrainterface{}    `json:"authorizer"`
 //	HTTPMethod        string                    `json:"httpMethod"`
 //	RequestTime       string                    `json:"requestTime"`
 //	RequestTimeEpoch  int64                     `json:"requestTimeEpoch"`
@@ -81,7 +104,7 @@ type RequestAdapter interface {
 //
 //func (adapter APIGWProxyRequestAdapter) do() (AdaptedRequest, error)  {
 //	ad := AdaptedRequest{}
-//	sp := make(map[string]interface{})
+//	sp := make(map[string]infrainterface{})
 //	for k, v := range adapter.raw.PathParameters {
 //		sp[k] = v
 //	}
@@ -92,7 +115,7 @@ type RequestAdapter interface {
 //		sp[k] = v
 //	}
 //	b := []byte(adapter.raw.Body)
-//	jm := make(map[string]interface{})
+//	jm := make(map[string]infrainterface{})
 //	err := json.Unmarshal(b, &jm)
 //	if err != nil {
 //		return ad, err
@@ -111,8 +134,30 @@ type RequestAdapter interface {
 //
 //func (adapter CommandLineInterfaceAdapter) do() (AdaptedRequest, error)  {
 //	ad := AdaptedRequest{}
-//	sp := make(map[string]interface{})
+//	sp := make(map[string]infrainterface{})
 //
 //
 //	return ad, nil
 //}
+
+type RequestFrom string
+
+const (
+	RequestFromAPIGateway RequestFrom = "APIGateway"
+	RequestFromHTTPServer RequestFrom = "HTTPServer"
+	RequestFromCLI        RequestFrom = "CLI"
+)
+
+type HTTPRequest struct {
+	Method  string
+	Headers map[string]string
+	Body    string
+
+	QueryParams map[string]string
+	PathParams  map[string]string
+}
+
+type CLIArgument struct {
+	Name  string
+	Value string
+}

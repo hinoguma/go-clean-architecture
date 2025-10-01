@@ -2,82 +2,31 @@ package adapter
 
 import (
 	"app/applogiclayer/usecase"
-	"errors"
+	"context"
+	"fmt"
 )
-
-/********************************
- * Request
- ********************************/
-type AddItemToCartRequest struct {
-	adapted AdaptedRequest
-}
-
-func (r AddItemToCartRequest) UseCaseRequest() usecase.AddItemToCartRequest {
-	return usecase.AddItemToCartRequest{
-		CustomerUserID: r.adapted.structuredParams["customerUserId"].(string),
-		ProductID:      r.adapted.structuredParams["productId"].(string),
-		Quantity:       int(r.adapted.structuredParams["quantity"].(float64)),
-	}
-}
-
-func (r AddItemToCartRequest) Validate() (usecase.AddItemToCartRequest, []error) {
-	errs := make([]error, 0)
-	ucReq := usecase.AddItemToCartRequest{}
-	tmpCuID, ok := r.adapted.GetStructuredParam("customerUserId")
-	if ok {
-		ucReq.CustomerUserID, ok = tmpCuID.(string)
-		if !ok {
-			errs = append(errs, errors.New("customerUserId must be string"))
-		}
-		if ucReq.CustomerUserID == "" {
-			errs = append(errs, errors.New("customerUserId is required"))
-		}
-	} else {
-		errs = append(errs, errors.New("customerUserId is required"))
-	}
-
-	tmpPdtID, ok := r.adapted.GetStructuredParam("productId")
-	if ok {
-		ucReq.ProductID, ok = tmpPdtID.(string)
-		if !ok {
-			errs = append(errs, errors.New("productId must be string"))
-		}
-		if ucReq.ProductID == "" {
-			errs = append(errs, errors.New("productId is required"))
-		}
-	} else {
-		errs = append(errs, errors.New("productId is required"))
-	}
-
-	tmpQty, ok := r.adapted.GetStructuredParam("quantity")
-	if ok {
-		qtyFloat, ok := tmpQty.(float64)
-		if !ok {
-			errs = append(errs, errors.New("quantity must be number"))
-		} else {
-			ucReq.Quantity = int(qtyFloat)
-			if ucReq.Quantity <= 0 {
-				errs = append(errs, errors.New("quantity must be greater than 0"))
-			}
-		}
-	} else {
-		errs = append(errs, errors.New("quantity is required"))
-	}
-	return ucReq, errs
-}
 
 /********************************
  * Response
  ********************************/
 type AddItemToCartResult struct {
-	cartID string
+	CartID string
+	BaseResult
+}
+
+func NewAddItemToCartResult(ucRes usecase.AddItemToCartResult) AddItemToCartResult {
+	res := AddItemToCartResult{
+		CartID: ucRes.CartID,
+	}
+	res.SetByBaseUseCaseResult(ucRes.BaseUseCaseResult)
+	return res
 }
 
 /********************************
  * adapter (call usecase)
  ********************************/
 type AddItemToCartAdapter interface {
-	Execute(reqAdp RequestAdapter, resp AdaptResponder) error
+	Execute(ctx context.Context, req AdaptedRequest) (AddItemToCartResult, error)
 }
 
 func NewAddItemToCartAdapter(
@@ -93,31 +42,92 @@ type addItemToCartAdapter struct {
 	uc usecase.AddItemToCartUseCase
 }
 
-func (adp addItemToCartAdapter) Execute(reqAdp RequestAdapter, resp AdaptResponder) error {
+func (adp addItemToCartAdapter) validateRequest(req AdaptedRequest) (usecase.AddItemToCartRequest, []ValidateError) {
+	vErrs := make([]ValidateError, 0)
+	ucReq := usecase.AddItemToCartRequest{}
 
-	// adapt request
-	adaptedReq, err := reqAdp.Do()
-	if err != nil {
-		return err
+	if req.IsHttpRequest() {
+		return adp.validateRequestForHTTP(req)
 	}
-	req := AddItemToCartRequest{
-		adapted: adaptedReq,
+	if req.IsCLIRequest() {
+		return adp.validateRequestForCLI(req)
 	}
+	// unknown request type
+	vErrs = append(vErrs, NewValidateError("", fmt.Sprintf("unknown request type. requestFrom:%s", req.From)))
+	return ucReq, vErrs
+}
+
+func (adp addItemToCartAdapter) validateRequestForHTTP(req AdaptedRequest) (usecase.AddItemToCartRequest, []ValidateError) {
+	vErrs := make([]ValidateError, 0)
+	ucReq := usecase.AddItemToCartRequest{}
+	tmpCuID, ok := req.GetStructuredParam("customerUserId")
+	if ok {
+		ucReq.CustomerUserID, ok = tmpCuID.(string)
+		if !ok {
+			vErrs = append(vErrs, NewValidateErrorRequired("customerUserId"))
+		}
+		if ucReq.CustomerUserID == "" {
+			vErrs = append(vErrs, NewValidateErrorRequired("customerUserId"))
+		}
+	} else {
+		vErrs = append(vErrs, NewValidateErrorRequired("customerUserId"))
+	}
+
+	tmpPdtID, ok := req.GetStructuredParam("productId")
+	if ok {
+		ucReq.ProductID, ok = tmpPdtID.(string)
+		if !ok {
+			vErrs = append(vErrs, NewValidateErrorRequired("productId"))
+		} else {
+			if ucReq.ProductID == "" {
+				vErrs = append(vErrs, NewValidateErrorRequired("productId"))
+			}
+		}
+	} else {
+		vErrs = append(vErrs, NewValidateErrorRequired("productId"))
+	}
+
+	tmpQty, ok := req.GetStructuredParam("quantity")
+
+	if ok {
+		qty, ok := tmpQty.(float64)
+		if !ok {
+			vErrs = append(vErrs, NewValidateErrorRequired("quantity"))
+		} else {
+			ucReq.Quantity = int(qty)
+			if ucReq.Quantity <= 0 {
+				vErrs = append(vErrs, NewValidateError("quantity", "must be greater than zero"))
+			}
+		}
+	} else {
+		vErrs = append(vErrs, NewValidateErrorRequired("quantity"))
+	}
+	return ucReq, vErrs
+}
+
+func (adp addItemToCartAdapter) validateRequestForCLI(req AdaptedRequest) (usecase.AddItemToCartRequest, []ValidateError) {
+	vErrs := make([]ValidateError, 0)
+	vErrs = append(vErrs, NewValidateError("", "CLI not supported"))
+	return usecase.AddItemToCartRequest{}, vErrs
+}
+
+func (adp addItemToCartAdapter) Execute(ctx context.Context, req AdaptedRequest) (AddItemToCartResult, error) {
 
 	// validate request
-	ucReq, valErrs := req.Validate()
+	ucReq, valErrs := adp.validateRequest(req)
 	if len(valErrs) > 0 {
-		return errors.Join(valErrs...)
+		return AddItemToCartResult{}, NewAdapterErrorValidation(valErrs)
 	}
 
 	// call UseCase
-	ucResp := adp.uc.Execute(ucReq)
-
-	// adapt response
-	adaptedResp := AdapterLayerResponse{
-		Body: map[string]string{"cardId": ucResp.CartID},
+	ucResp, ucErr := adp.uc.Execute(ucReq)
+	if ucErr != nil {
+		return AddItemToCartResult{}, handleErrFromUseCase(ucErr)
 	}
-	resp.Marshal(adaptedResp)
-
-	return nil
+	res := NewAddItemToCartResult(ucResp)
+	res.SetByCtx(ctx)
+	if !res.IsSuccess() {
+		return res, NewResultNotSuccessError(res.BaseResult)
+	}
+	return res, nil
 }

@@ -2,14 +2,18 @@ package additemtocart
 
 import (
 	"app/adapter"
+	"app/crosscutting/logger"
+	"app/crosscutting/utils"
 	"app/registory"
+	"context"
 	"flag"
 	"fmt"
 )
 
 func main() {
 	// e.g. parse args from CLI
-	args := []string{"--user", "user1", "--item", "itemA", "--quantity", "2"}
+	ctx := context.Background()
+
 	// prepare adapters
 	infraFactory := registory.NewInfraFactory()
 	useCaseFactory := registory.NewUseCaseFactory(infraFactory)
@@ -18,18 +22,19 @@ func main() {
 	)
 
 	adp := adapterFactory.NewAddItemToCartAdapter()
-	responder := AddItemToCartResponder{}
-	err := adp.Execute(RequestAdapter{args: args}, &responder)
+	adaptedReq, err := AdaptedRequest()
 	if err != nil {
 		return
 	}
+	resp, err := adp.Execute(ctx, adaptedReq)
+	if err != nil {
+		logger.LogError(ctx, utils.NewLogRequest(err.Error()).ToValue())
+		return
+	}
+	fmt.Sprintf("resp: %+v", resp)
 }
 
-type RequestAdapter struct {
-	args []string
-}
-
-func (adp RequestAdapter) Do() (adapter.AdaptedRequest, error) {
+func AdaptedRequest() (adapter.AdaptedRequest, error) {
 	// e.g. parse body and inject to adapted request
 	cuidPtr := flag.String("cuid", "", "userId")
 	pidPtr := flag.String("pid", "", "productId")
@@ -42,11 +47,4 @@ func (adp RequestAdapter) Do() (adapter.AdaptedRequest, error) {
 	req.AddStructuredParam("quantity", *qPtr)
 	return req, nil
 
-}
-
-type AddItemToCartResponder struct {
-}
-
-func (responder *AddItemToCartResponder) Marshal(raw adapter.AdapterLayerResponse) {
-	fmt.Sprintln("result is", raw.Body.(string))
 }

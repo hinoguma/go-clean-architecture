@@ -150,3 +150,8 @@ func ErrWrap(wrapped error, wrapper error) error {
 	fmt.Println("ErrWrap: use fmt.Errorf")
 	return fmt.Errorf("%s: %w", wrapped, wrapper)
 }
+
+type ValidateErrorDetail struct {
+	Field   string `json:"field"`
+	Message string `json:"message"`
+}

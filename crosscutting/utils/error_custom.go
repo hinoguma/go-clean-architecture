@@ -53,3 +53,10 @@ func NewAuthorizeFailedError(message string) Error {
 	err.Type = ErrorTypeAuthorizeFailed
 	return err
 }
+
+func NewValidationFailedError(details []ValidateErrorDetail) Error {
+	err := NewError("validation failed")
+	err.Type = ErrorTypeValidationFailed
+	err.SetAttr("details", details)
+	return err
+}

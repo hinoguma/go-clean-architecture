@@ -20,6 +20,13 @@ func LogInfo(ctx context.Context, req utils.LogRequest) {
 	globalLogger.Info(ctx, req)
 }
 
+func LogError(ctx context.Context, req utils.LogRequest) {
+	if globalLogger == nil {
+		return
+	}
+	globalLogger.Error(ctx, req)
+}
+
 type StdLogger struct {
 }
 
