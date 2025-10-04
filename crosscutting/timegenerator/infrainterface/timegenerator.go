@@ -8,4 +8,5 @@ import (
 type TimeGenerator interface {
 	GetTz() time.Location
 	NowTs() utils.UnixTimestamp
+	NowTsMills() utils.UnixTimestampMillis
 }

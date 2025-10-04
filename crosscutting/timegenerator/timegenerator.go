@@ -12,12 +12,17 @@ func SetGlobalTimeGenerator(tg infrainterface.TimeGenerator) {
 	globalTimeGenerator = tg
 }
 
-
 func NowTs() utils.UnixTimestamp {
 	return globalTimeGenerator.NowTs()
 }
 
+func NowTsMills() utils.UnixTimestampMillis {
+	return globalTimeGenerator.NowTsMills()
+}
 
+func NowYmd_Hms_ms() utils.Ymd_Hms_ms {
+	return NowTsMills().Ymd_Hms_ms()
+}
 
 type StdTimeGenerator struct {
 	tz time.Location
@@ -34,4 +39,8 @@ func (t StdTimeGenerator) GetTz() time.Location {
 
 func (t StdTimeGenerator) NowTs() utils.UnixTimestamp {
 	return utils.UnixTimestamp(time.Now().In(&t.tz).Unix())
+}
+
+func (t StdTimeGenerator) NowTsMills() utils.UnixTimestampMillis {
+	return utils.UnixTimestampMillis(time.Now().In(&t.tz).UnixMilli())
 }
