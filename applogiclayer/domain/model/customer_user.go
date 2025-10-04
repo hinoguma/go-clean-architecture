@@ -1,11 +1,17 @@
 package model
 
+import "app/crosscutting/utils"
+
 type CustomerUserID string
+
+func (value CustomerUserID) String() string {
+	return string(value)
+}
 
 type CustomerUser struct {
 	ID   CustomerUserID `json:"id"`
 	Name string         `json:"name"`
 
-	CreatedAt float64 `json:"createdAt"`
-	UpdatedAt float64 `json:"updatedAt"`
+	CreatedAt utils.UnixTimestamp `json:"createdAt"`
+	UpdatedAt utils.UnixTimestamp `json:"updatedAt"`
 }
