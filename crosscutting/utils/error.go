@@ -91,6 +91,13 @@ func (e *Error) SetAttr(key string, value interface{}) *Error {
 	return e
 }
 
+func (e *Error) ToValue() Error {
+	return *e
+}
+func (e Error) ToPointer() *Error {
+	return &e
+}
+
 func NewError(message string) Error {
 	// stacktrace
 	pc := make([]uintptr, 10)

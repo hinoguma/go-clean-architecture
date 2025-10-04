@@ -7,6 +7,7 @@ const (
 	ErrorTypeDataNotFound      ErrorType = "DATA_NOT_FOUND"
 	ErrorTypeAuthorizeFailed   ErrorType = "AUTHORIZE_FAILED"
 	ErrorTypeDataLocked        ErrorType = "DATA_LOCKED"
+	ErrorTypeConditionNotMatch ErrorType = "CONDITION_NOT_MATCH"
 	ErrorTypeDataConvertFailed ErrorType = "DATA_CONVERT_FAILED"
 	ErrorTypeValidationFailed  ErrorType = "VALIDATION_FAILED"
 	ErrorTypeUnexpectedFormat  ErrorType = "UNEXPECTED_FORMAT"
@@ -23,6 +24,14 @@ func IsErrorType(err error, et ErrorType) bool {
 
 func IsDataNotFoundError(err error) bool {
 	return IsErrorType(err, ErrorTypeDataNotFound)
+}
+
+func IsDataLockedError(err error) bool {
+	return IsErrorType(err, ErrorTypeDataLocked)
+}
+
+func IsConditionNotMatchError(err error) bool {
+	return IsErrorType(err, ErrorTypeConditionNotMatch)
 }
 
 func NewDataNotFoundError(field string, value string) Error {
