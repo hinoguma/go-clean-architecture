@@ -45,13 +45,13 @@ func (th *TransferAdapter) Execute(ctx context.Context, req TransferAdapterReque
 	}
 
 	// call adapter logic
-	usecaseRes, err := th.usecase.Execute(usecaseReq)
+	usecaseRes, err := th.usecase.Execute(ctx, usecaseReq)
 	if err != nil {
 		return TransferAdapterResponse{}, err
 	}
 
 	// convert usecase response to adapter response format
 	return TransferAdapterResponse{
-		TransactionID: usecaseRes.TransactionID,
+		TransactionID: usecaseRes.TransactionRecord.ID,
 	}, nil
 }
