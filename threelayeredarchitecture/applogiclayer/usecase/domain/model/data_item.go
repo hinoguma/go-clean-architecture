@@ -1,9 +1,9 @@
 package model
 
-
-
-
-import "time"
+import (
+	"app/threelayeredarchitecture/appinfraadapterlayer"
+	"time"
+)
 
 
 type HasCreatedAt struct {
@@ -17,4 +17,9 @@ type HasUpdatedAt struct {
 type DataItem struct {
 	HasCreatedAt
 	HasUpdatedAt
+}
+
+func (model *DataItem) SetFromDTO(dto appinfraadapterlayer.DatabaseItem) {
+	model.CreatedAt = time.Unix(dto.CreatedAt, 0)
+	model.UpdatedAt = time.Unix(dto.UpdatedAt, 0)
 }

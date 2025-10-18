@@ -14,12 +14,30 @@ type Money struct {
 }
 
 func (value Money) IsValid() bool {
+	if !value.IsValidCurrency() {
+		return false
+	}
+	return value.IsValidAmount()
+}
+
+func (value Money) IsValidAmount() bool {
+	return value.Amount >= 0
+}
+
+func (value Money) IsValidCurrency() bool {
 	switch value.Currency {
 	case USD, EUR, JPY:
+		return true
 	default:
 		return false
 	}
-	return value.Amount >= 0
+}
+
+func (value Money) IsLessThan(other Money) bool {
+	if value.Currency != other.Currency {
+		return false
+	}
+	return value.Amount < other.Amount
 }
 
 

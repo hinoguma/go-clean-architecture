@@ -4,7 +4,7 @@ type TransactionRecordDTO struct {
 	ID                string
 	FromBankAccountID string
 	ToBankAccountID   string
-	Amount            int
+	Amount            int64
 	Currency          string
 	DatabaseItem
 }

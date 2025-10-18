@@ -1,9 +1,9 @@
 package usecase
 
 import (
-	"app/threelayeredarchitecture/appinfraadapterlayer"
 	"app/threelayeredarchitecture/applogiclayer/usecase/domain/model"
 	"app/threelayeredarchitecture/applogiclayer/usecase/domain/service"
+	"context"
 )
 
 type TransferUsecaseRequest struct {
@@ -13,33 +13,72 @@ type TransferUsecaseRequest struct {
 }
 
 type TransferUsecaseResponse struct {
-	TransactionID string
+	TransactionRecord model.TransactionRecord
 }
 
 type TransferUsecaseIF interface {
-	Execute(req TransferUsecaseRequest) (TransferUsecaseResponse, error)
+	Execute(ctx context.Context, req TransferUsecaseRequest) (TransferUsecaseResponse, error)
 }
 
 type TransferUsecase struct {
-	transferService        service.TransferServiceIF
-	bankAccountRepository  appinfraadapterlayer.BankAccountRepositoryAdapterIF
-	bankCustomerRepository appinfraadapterlayer.BankCustomerRepositoryAdapterIF
+	transferService service.TransferServiceIF
 }
 
-func (tu *TransferUsecase) Execute(req TransferUsecaseRequest) (TransferUsecaseResponse, error) {
+func NewTransferUsecase(
+	transferService service.TransferServiceIF,
+) TransferUsecaseIF {
+	return &TransferUsecase{
+		transferService: transferService,
+	}
+}
+
+func (uc *TransferUsecase) Execute(ctx context.Context, req TransferUsecaseRequest) (TransferUsecaseResponse, error) {
 
 	// validate request
+	appLogicErr := uc.validateRequest(req)
+	if appLogicErr != nil {
+		return TransferUsecaseResponse{}, appLogicErr
+	}
 
-	// get bank account and user
+	transferReq := model.TransferRequest{
+		FromBankAccountID: req.FromBankAccountID,
+		ToBankAccountID:   req.ToBankAccountID,
+		Money:             req.Money,
+	}
+	transferRes, err := uc.transferService.Execute(transferReq)
+	if err != nil {
+		return TransferUsecaseResponse{}, err
+	}
 
-	// lock accounts
+	// error patterns
+	// - validation error
+	// - bank account not found
+	// - bank customer not found
+	// - insufficient balance
+	// - internal error
 
-	// check balance
+	return TransferUsecaseResponse{
+		TransactionRecord: transferRes.TransactionRecord,
+	}, nil
+}
 
-	// perform transfer
+func (uc TransferUsecase) validateRequest(req TransferUsecaseRequest) *model.AppLogicError {
+	details := make([]model.ValidationErrorDetail, 0)
+	if req.FromBankAccountID == "" {
+		details = append(details, model.NewRequiredErrDetail("fromBankAccountId"))
+	}
+	if req.ToBankAccountID == "" {
+		details = append(details, model.NewRequiredErrDetail("toBankAccountId"))
+	}
+	if !req.Money.IsValidAmount() {
+		details = append(details, model.NewMinValueErrDetail("amount", 1))
+	}
+	if !req.Money.IsValidCurrency() {
+		details = append(details, model.NewRequiredErrDetail("currency"))
+	}
 
-	// create transaction record
-
-	// persist changes
-
+	if len(details) > 0 {
+		return model.NewValidationError(details)
+	}
+	return nil
 }
