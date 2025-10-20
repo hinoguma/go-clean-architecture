@@ -5,8 +5,8 @@ import (
 	"database/sql"
 )
 
-type SQLDatabaseItem interface {
-	SetByRows(rows *sql.Rows) error
+type SQLDatabaseItem[T any] interface {
+	ToMap() map[string]interface{}
 }
 
 type DatabaseItem struct {
@@ -30,20 +30,20 @@ func SQLQueryContext(ctx context.Context, f ExecSQLQueryFunc, query string, args
 	return row, err
 }
 
-func buildSelectQueryWithId(id string, tableName string) (string, []any) {
+func buildSelectQueryWithId[T string | int64](id T, tableName string) (string, []any) {
 	query := "SELECT * FROM " + tableName + " WHERE id = $1"
 	values := []any{id}
 	return query, values
 }
 
-func buildUpdateQueryWithId(id string, tableName string, updateFields UpdateFieldRequests) (string, []any) {
+func buildUpdateQueryWithId[T string | int64](id T, tableName string, updateFields UpdateFieldRequests) (string, []any) {
 	setClause, values := updateFields.ToSQLSetClause()
-	query := "UPDATE " + tableName + " SET " + setClause + " WHERE id = $" + string(len(values)+1+'0')
+	query := "UPDATE " + tableName + " SET " + setClause + " WHERE id = $" + string(len(values)+1)
 	values = append(values, id)
 	return query, values
 }
 
-func buildDeleteQueryWithId(id string, tableName string) (string, []any) {
+func buildDeleteQueryWithId[T string | int64](id T, tableName string) (string, []any) {
 	query := "DELETE FROM " + tableName + " WHERE id = $1"
 	values := []any{id}
 	return query, values
@@ -52,7 +52,7 @@ func buildDeleteQueryWithId(id string, tableName string) (string, []any) {
 func buildInsertQuery(tableName string, fields map[string]any) (string, []any) {
 	columns := ""
 	placeholders := ""
-	values := []any{}
+	values := make([]any, 0)
 	i := 1
 	for col, val := range fields {
 		if i > 1 {
@@ -60,7 +60,7 @@ func buildInsertQuery(tableName string, fields map[string]any) (string, []any) {
 			placeholders += ", "
 		}
 		columns += col
-		placeholders += "$" + string(i+'0')
+		placeholders += "$" + string(i)
 		values = append(values, val)
 		i++
 	}
@@ -76,12 +76,12 @@ type UpdateFieldRequests []UpdateFieldRequest
 
 func (requests UpdateFieldRequests) ToSQLSetClause() (string, []any) {
 	setClause := ""
-	values := []any{}
+	values := make([]any, 0)
 	for i, req := range requests {
 		if i > 0 {
 			setClause += ", "
 		}
-		setClause += req.FieldName + " = $" + string(i+1+'0')
+		setClause += req.FieldName + " = $" + string(i+1)
 		values = append(values, req.NewValue)
 	}
 
