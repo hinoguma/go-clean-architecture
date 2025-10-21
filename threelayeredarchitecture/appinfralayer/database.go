@@ -74,6 +74,14 @@ type UpdateFieldRequest struct {
 }
 type UpdateFieldRequests []UpdateFieldRequest
 
+func (requests *UpdateFieldRequests) Append(field string, value any) *UpdateFieldRequests {
+	*requests = append(*requests, UpdateFieldRequest{
+		FieldName: field,
+		NewValue:  value,
+	})
+	return requests
+}
+
 func (requests UpdateFieldRequests) ToSQLSetClause() (string, []any) {
 	setClause := ""
 	values := make([]any, 0)

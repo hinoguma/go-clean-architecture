@@ -3,13 +3,14 @@ package service
 import (
 	"app/threelayeredarchitecture/appinfraadapterlayer"
 	"app/threelayeredarchitecture/applogiclayer/usecase/domain/model"
+	"context"
 	"errors"
 	"fmt"
 	"time"
 )
 
 type TransferServiceIF interface {
-	Execute(req model.TransferRequest) (model.TransferResult, error)
+	Execute(ctx context.Context, req model.TransferRequest) (model.TransferResult, error)
 }
 
 type TransferService struct {
@@ -33,18 +34,18 @@ func NewTransferService(
 	}
 }
 
-func (service *TransferService) Execute(req model.TransferRequest) (model.TransferResult, error) {
+func (service *TransferService) Execute(ctx context.Context, req model.TransferRequest) (model.TransferResult, error) {
 
 	// rollback mechanism is omitted for simplicity
 	// my current strategy would be... Maiking WAL log struct and if some error happens, we can rollback to the previous state
 	result := model.TransferResult{}
 
 	// get bank account and user
-	fromAccountDTO, err := service.bankAccountRepository.Get(req.FromBankAccountID)
+	fromAccountDTO, err := service.bankAccountRepository.Get(ctx, req.FromBankAccountID)
 	if err != nil {
 		return result, err
 	}
-	toAccountDTO, err := service.bankAccountRepository.Get(req.ToBankAccountID)
+	toAccountDTO, err := service.bankAccountRepository.Get(ctx, req.ToBankAccountID)
 	if err != nil {
 		return result, err
 	}
@@ -52,23 +53,23 @@ func (service *TransferService) Execute(req model.TransferRequest) (model.Transf
 	toAccount := model.ConvertDTOToBankAccount(toAccountDTO)
 
 	// lock accounts
-	_, err = service.bankAccountLockService.Lock(fromAccount.ID)
+	_, err = service.bankAccountLockService.Lock(ctx, fromAccount.ID)
 	if err != nil {
 		return result, err
 	}
-	defer service.bankAccountLockService.Unlock(fromAccount.ID)
-	_, err = service.bankAccountLockService.Lock(toAccount.ID)
+	defer service.bankAccountLockService.Unlock(ctx, fromAccount.ID)
+	_, err = service.bankAccountLockService.Lock(ctx, toAccount.ID)
 	if err != nil {
 		return result, err
 	}
-	defer service.bankAccountLockService.Unlock(toAccount.ID)
+	defer service.bankAccountLockService.Unlock(ctx, toAccount.ID)
 
 	// create transaction record
 	record := model.NewTransferRecord(
 		"uuid v4", fromAccount.ID, toAccount.ID, req.Money, time.Now(),
 	)
 	record.SetTransferStatus(model.TransferStatusInCheckBalance)
-	err = service.transactionRecordRepository.Create(record.DTO())
+	err = service.transactionRecordRepository.Create(ctx, record.DTO())
 	if err != nil {
 		return result, err
 	}
@@ -76,7 +77,7 @@ func (service *TransferService) Execute(req model.TransferRequest) (model.Transf
 	// check balance
 	if fromAccount.Balance.IsLessThan(req.Money) {
 		result.TransactionRecord.SetTransferStatus(model.TransferStatusInCheckBalanceFailed)
-		err2 := service.transactionRecordRepository.Update(record.DTO())
+		err2 := service.transactionRecordRepository.Update(ctx, record.DTO())
 		if err2 != nil {
 			return result, fmt.Errorf("insufficient balance: %w", err2)
 		}
@@ -88,7 +89,7 @@ func (service *TransferService) Execute(req model.TransferRequest) (model.Transf
 		model.TransferStatusInTransfer,
 	)
 	result.TransactionRecord.UpdatedAt = time.Now()
-	service.transactionRecordRepository.Update(result.TransactionRecord.DTO())
+	service.transactionRecordRepository.Update(ctx, result.TransactionRecord.DTO())
 	fromAccount.Withdraw(req.Money, time.Now())
 	err = service.bankAccountRepository.Update(fromAccount.DTO())
 	if err != nil {
@@ -111,7 +112,7 @@ func (service *TransferService) Execute(req model.TransferRequest) (model.Transf
 	// set transfer completed
 	result.TransactionRecord.SetTransferStatus(model.TransferStatusCompleted)
 	result.TransactionRecord.UpdatedAt = time.Now()
-	err = service.transactionRecordRepository.Update(result.TransactionRecord.DTO())
+	err = service.transactionRecordRepository.Update(ctx, result.TransactionRecord.DTO())
 	if err != nil {
 		wrappedErr := service.rollbackTransfer(
 			req, fromAccount, toAccount, result.TransactionRecord, err,

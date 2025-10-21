@@ -1,6 +1,9 @@
 package appinfraadapterlayer
 
-import "app/threelayeredarchitecture/appinfralayer"
+import (
+	"app/threelayeredarchitecture/appinfralayer"
+	"context"
+)
 
 type TransactionRecordDTO struct {
 	ID                string
@@ -28,11 +31,27 @@ func (dto *TransactionRecordDTO) SetFromRawData(rawdata appinfralayer.Transactio
 	dto.UpdatedAt = rawdata.UpdatedAt
 }
 
+type UpdateTransactionRecordRequestDTO struct {
+	UpdateDatabaseItemRequestDTO
+}
+
+func NewUpdateTransactionRecordRequestDTO() *UpdateTransactionRecordRequestDTO {
+	return &UpdateTransactionRecordRequestDTO{}
+}
+
+func (dto UpdateTransactionRecordRequestDTO) UpdateFieldRequests() appinfralayer.UpdateFieldRequests {
+	var reqs appinfralayer.UpdateFieldRequests = make([]appinfralayer.UpdateFieldRequest, 0)
+	if dto.UpdatedAt != nil {
+		reqs.Append("updatedAt", dto.UpdatedAt)
+	}
+	return reqs
+}
+
 type TransactionRecordRepositoryAdapterIF interface {
-	Get(id string) (TransactionRecordDTO, error)
-	Create(itemDTO TransactionRecordDTO) error
-	Update(itemDTO TransactionRecordDTO) error
-	Delete(id string) error
+	Get(ctx context.Context, id string) (TransactionRecordDTO, error)
+	Create(ctx context.Context, itemDTO TransactionRecordDTO) error
+	Update(ctx context.Context, id string, updateReq UpdateTransactionRecordRequestDTO) error
+	Delete(ctx context.Context, id string) error
 }
 
 type TransactionRecordRepositoryAdapter struct {
@@ -45,8 +64,8 @@ func NewTransactionRecordRepositoryAdapter(repository appinfralayer.TransactionR
 	}
 }
 
-func (adapter *TransactionRecordRepositoryAdapter) Get(id string) (TransactionRecordDTO, error) {
-	rawdata, err := adapter.repository.Get(id)
+func (adapter *TransactionRecordRepositoryAdapter) Get(ctx context.Context, id string) (TransactionRecordDTO, error) {
+	rawdata, err := adapter.repository.Get(ctx, id)
 	if err != nil {
 		return TransactionRecordDTO{}, err
 	}
@@ -55,14 +74,14 @@ func (adapter *TransactionRecordRepositoryAdapter) Get(id string) (TransactionRe
 	return dto, nil
 }
 
-func (adapter *TransactionRecordRepositoryAdapter) Create(itemDTO TransactionRecordDTO) error {
-	return adapter.repository.Create(itemDTO.RawData())
+func (adapter *TransactionRecordRepositoryAdapter) Create(ctx context.Context, itemDTO TransactionRecordDTO) error {
+	return adapter.repository.Create(ctx, itemDTO.RawData())
 }
 
-func (adapter *TransactionRecordRepositoryAdapter) Update(itemDTO TransactionRecordDTO) error {
-	return adapter.repository.Update(itemDTO.RawData())
+func (adapter *TransactionRecordRepositoryAdapter) Update(ctx context.Context, id string, updateReq UpdateTransactionRecordRequestDTO) error {
+	return adapter.repository.Update(ctx, id, updateReq.UpdateFieldRequests())
 }
 
-func (adapter *TransactionRecordRepositoryAdapter) Delete(id string) error {
-	return adapter.repository.Delete(id)
+func (adapter *TransactionRecordRepositoryAdapter) Delete(ctx context.Context, id string) error {
+	return adapter.repository.Delete(ctx, id)
 }

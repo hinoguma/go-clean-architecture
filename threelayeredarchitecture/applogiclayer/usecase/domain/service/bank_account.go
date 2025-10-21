@@ -3,11 +3,12 @@ package service
 import (
 	"app/threelayeredarchitecture/appinfraadapterlayer"
 	"app/threelayeredarchitecture/applogiclayer/usecase/domain/model"
+	"context"
 )
 
 type BankAccountLockServiceIF interface {
-	Lock(bankAccountID string) (model.BankAccount, error)
-	Unlock(bankAccountID string) (model.BankAccount, error)
+	Lock(ctx context.Context, bankAccountID string) (model.BankAccount, error)
+	Unlock(ctx context.Context, bankAccountID string) (model.BankAccount, error)
 }
 
 type BankAccountLockService struct {
@@ -22,10 +23,10 @@ func NewBankAccountLockService(
 	}
 }
 
-func (s *BankAccountLockService) Lock(bankAccountID string) (model.BankAccount, error) {
+func (s *BankAccountLockService) Lock(ctx context.Context, bankAccountID string) (model.BankAccount, error) {
 	panic("not implemented")
 }
 
-func (s *BankAccountLockService) Unlock(bankAccountID string) (model.BankAccount, error) {
+func (s *BankAccountLockService) Unlock(ctx context.Context, bankAccountID string) (model.BankAccount, error) {
 	panic("not implemented")
 }

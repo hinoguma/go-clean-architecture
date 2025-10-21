@@ -1,6 +1,9 @@
 package appinfraadapterlayer
 
-import "app/threelayeredarchitecture/appinfralayer"
+import (
+	"app/threelayeredarchitecture/appinfralayer"
+	"context"
+)
 
 type BankCustomerDTO struct {
 	ID   string
@@ -25,11 +28,36 @@ func (dto *BankCustomerDTO) SetFromRawData(rawdata appinfralayer.BankCustomerRaw
 	dto.UpdatedAt = rawdata.UpdatedAt
 }
 
+type UpdateBankCustomerRequestDTO struct {
+	Name *string
+	UpdateDatabaseItemRequestDTO
+}
+
+func NewUpdateBankCustomerRequestDTO() *UpdateBankCustomerRequestDTO {
+	return &UpdateBankCustomerRequestDTO{}
+}
+
+func (dto *UpdateBankCustomerRequestDTO) WithName(val string) *UpdateBankCustomerRequestDTO {
+	dto.Name = &val
+	return dto
+}
+
+func (dto UpdateBankCustomerRequestDTO) UpdateFieldRequests() appinfralayer.UpdateFieldRequests {
+	var reqs appinfralayer.UpdateFieldRequests = make([]appinfralayer.UpdateFieldRequest, 0)
+	if dto.Name != nil {
+		reqs.Append("name", dto.Name)
+	}
+	if dto.UpdatedAt != nil {
+		reqs.Append("updatedAt", dto.UpdatedAt)
+	}
+	return reqs
+}
+
 type BankCustomerRepositoryAdapterIF interface {
-	Get(id string) (BankCustomerDTO, error)
-	Create(itemDTO BankCustomerDTO) error
-	Update(itemDTO BankCustomerDTO) error
-	Delete(id string) error
+	Get(ctx context.Context, id string) (BankCustomerDTO, error)
+	Create(ctx context.Context, itemDTO BankCustomerDTO) error
+	Update(ctx context.Context, id string, updateReq UpdateBankCustomerRequestDTO) error
+	Delete(ctx context.Context, id string) error
 }
 
 type BankCustomerRepositoryAdapter struct {
@@ -42,8 +70,8 @@ func NewBankCustomerRepositoryAdapter(repository appinfralayer.BankCustomerRepos
 	}
 }
 
-func (adapter *BankCustomerRepositoryAdapter) Get(id string) (BankCustomerDTO, error) {
-	rawdata, err := adapter.repository.Get(id)
+func (adapter *BankCustomerRepositoryAdapter) Get(ctx context.Context, id string) (BankCustomerDTO, error) {
+	rawdata, err := adapter.repository.Get(ctx, id)
 	if err != nil {
 		return BankCustomerDTO{}, err
 	}
@@ -52,14 +80,14 @@ func (adapter *BankCustomerRepositoryAdapter) Get(id string) (BankCustomerDTO, e
 	return dto, nil
 }
 
-func (adapter *BankCustomerRepositoryAdapter) Create(itemDTO BankCustomerDTO) error {
-	return adapter.repository.Create(itemDTO.RawData())
+func (adapter *BankCustomerRepositoryAdapter) Create(ctx context.Context, itemDTO BankCustomerDTO) error {
+	return adapter.repository.Create(ctx, itemDTO.RawData())
 }
 
-func (adapter *BankCustomerRepositoryAdapter) Update(itemDTO BankCustomerDTO) error {
-	return adapter.repository.Update(itemDTO.RawData())
+func (adapter *BankCustomerRepositoryAdapter) Update(ctx context.Context, id string, updateReq UpdateBankCustomerRequestDTO) error {
+	return adapter.repository.Update(ctx, id, updateReq.UpdateFieldRequests())
 }
 
-func (adapter *BankCustomerRepositoryAdapter) Delete(id string) error {
-	return adapter.repository.Delete(id)
+func (adapter *BankCustomerRepositoryAdapter) Delete(ctx context.Context, id string) error {
+	return adapter.repository.Delete(ctx, id)
 }
