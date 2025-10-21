@@ -37,10 +37,11 @@ type TransactionRecordRepository struct {
 	sqlClient SQLClient
 }
 
-func NewTransactionRecordRepository(sqlClient SQLClient) TransactionRecordRepositoryIF {
+func NewTransactionRecordRepository(sqlClient SQLClient, txPool TxConnectionPoolIF) TransactionRecordRepositoryIF {
 	return &TableRepository[TransactionRecordRawData, string]{
 		tablename:   TableTransactionRecords,
 		sqlClient:   sqlClient,
+		txPool:      txPool,
 		convertFunc: newTransactionRecordRawDataBySQLRows,
 	}
 }

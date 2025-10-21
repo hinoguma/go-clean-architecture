@@ -37,10 +37,11 @@ type BankCustomerRepository struct {
 	sqlClient SQLClient
 }
 
-func NewBankCustomerRepository(sqlClient SQLClient) BankCustomerRepositoryIF {
+func NewBankCustomerRepository(sqlClient SQLClient, txPool TxConnectionPoolIF) BankCustomerRepositoryIF {
 	return &TableRepository[BankCustomerRawData, string]{
 		tablename:   TableBankCustomers,
 		sqlClient:   sqlClient,
+		txPool:      txPool,
 		convertFunc: newBankCustomerRawDataBySQLRows,
 	}
 }

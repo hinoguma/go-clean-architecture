@@ -31,16 +31,24 @@ type BankAccountRepositoryIF interface {
 	Create(ctx context.Context, item BankAccountRawData) error
 	Update(ctx context.Context, id string, updateFields UpdateFieldRequests) error
 	Delete(ctx context.Context, id string) error
+
+	// With Transaction
+	Lock(ctx context.Context, id string, txId string) (BankAccountRawData, error)
+	TxCreate(ctx context.Context, item BankAccountRawData, txId string) error
+	TxUpdate(ctx context.Context, id string, updateFields UpdateFieldRequests, txId string) error
+	TxDelete(ctx context.Context, id string, txId string) error
 }
 
 type BankAccountRepository struct {
 	sqlClient SQLClient
 }
 
-func NewBankAccountRepository(sqlClient SQLClient) BankAccountRepositoryIF {
+func NewBankAccountRepository(
+	sqlClient SQLClient, txPool TxConnectionPoolIF) BankAccountRepositoryIF {
 	return &TableRepository[BankAccountRawData, string]{
 		tablename:   TableBankAccounts,
 		sqlClient:   sqlClient,
+		txPool:      txPool,
 		convertFunc: newBankAccountRawDataBySQLRows,
 	}
 }

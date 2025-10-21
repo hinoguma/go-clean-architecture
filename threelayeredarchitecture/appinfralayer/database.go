@@ -16,6 +16,7 @@ type DatabaseItem struct {
 
 type SQLClient interface {
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	TxQueryContext(ctx context.Context, conn TransactionConnection, query string, args ...any) (*sql.Rows, error)
 }
 
 type ExecSQLQueryFunc func(ctx context.Context, query string, args ...any) (*sql.Rows, error)
