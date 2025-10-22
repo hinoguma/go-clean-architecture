@@ -25,10 +25,12 @@ func (dto TransactionRecordDTO) RawData() appinfralayer.TransactionRecordRawData
 	return rawdata
 }
 
-func (dto *TransactionRecordDTO) SetFromRawData(rawdata appinfralayer.TransactionRecordRawData) {
-	dto.ID = rawdata.ID
-	dto.CreatedAt = rawdata.CreatedAt
-	dto.UpdatedAt = rawdata.UpdatedAt
+func convertRawDataToBankAccountDTO(rawdata appinfralayer.TransactionRecordRawData) TransactionRecordDTO {
+	item := TransactionRecordDTO{}
+	item.ID = rawdata.ID
+	item.CreatedAt = rawdata.CreatedAt
+	item.UpdatedAt = rawdata.UpdatedAt
+	return item
 }
 
 type UpdateTransactionRecordRequestDTO struct {
@@ -54,34 +56,14 @@ type TransactionRecordRepositoryAdapterIF interface {
 	Delete(ctx context.Context, id string) error
 }
 
-type TransactionRecordRepositoryAdapter struct {
-	repository appinfralayer.TransactionRecordRepositoryIF
-}
-
 func NewTransactionRecordRepositoryAdapter(repository appinfralayer.TransactionRecordRepositoryIF) TransactionRecordRepositoryAdapterIF {
-	return &TransactionRecordRepositoryAdapter{
-		repository: repository,
+	return &DatabaseItemRepositoryAdapter[
+		appinfralayer.TransactionRecordRawData,
+		TransactionRecordDTO,
+		string,
+		UpdateTransactionRecordRequestDTO,
+	]{
+		repository:              repository,
+		convertRawDataToDtoFunc: convertRawDataToBankAccountDTO,
 	}
-}
-
-func (adapter *TransactionRecordRepositoryAdapter) Get(ctx context.Context, id string) (TransactionRecordDTO, error) {
-	rawdata, err := adapter.repository.Get(ctx, id)
-	if err != nil {
-		return TransactionRecordDTO{}, err
-	}
-	dto := TransactionRecordDTO{}
-	dto.SetFromRawData(rawdata)
-	return dto, nil
-}
-
-func (adapter *TransactionRecordRepositoryAdapter) Create(ctx context.Context, itemDTO TransactionRecordDTO) error {
-	return adapter.repository.Create(ctx, itemDTO.RawData())
-}
-
-func (adapter *TransactionRecordRepositoryAdapter) Update(ctx context.Context, id string, updateReq UpdateTransactionRecordRequestDTO) error {
-	return adapter.repository.Update(ctx, id, updateReq.UpdateFieldRequests())
-}
-
-func (adapter *TransactionRecordRepositoryAdapter) Delete(ctx context.Context, id string) error {
-	return adapter.repository.Delete(ctx, id)
 }

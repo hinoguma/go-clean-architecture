@@ -24,10 +24,12 @@ func (dto BankAccountDTO) RawData() appinfralayer.BankAccountRawData {
 	return rawdata
 }
 
-func (dto *BankAccountDTO) SetFromRawData(rawdata appinfralayer.BankAccountRawData) {
-	dto.ID = rawdata.ID
-	dto.CreatedAt = rawdata.CreatedAt
-	dto.UpdatedAt = rawdata.UpdatedAt
+func ConvertRawDataToBankAccountDTO(rawdata appinfralayer.BankAccountRawData) BankAccountDTO {
+	item := BankAccountDTO{}
+	item.ID = rawdata.ID
+	item.CreatedAt = rawdata.CreatedAt
+	item.UpdatedAt = rawdata.UpdatedAt
+	return item
 }
 
 type UpdateBankAccountRequestDTO struct {
@@ -75,36 +77,22 @@ type BankAccountRepositoryAdapterIF interface {
 	Create(ctx context.Context, itemDTO BankAccountDTO) error
 	Update(ctx context.Context, id string, updateReq UpdateBankAccountRequestDTO) error
 	Delete(ctx context.Context, id string) error
+	Lock(ctx context.Context, id string, tx Transaction) (BankAccountDTO, error)
+	TxCreate(ctx context.Context, itemDTO BankAccountDTO, tx Transaction) error
+	TxUpdate(ctx context.Context, id string, updateReq UpdateBankAccountRequestDTO, tx Transaction) error
+	TxDelete(ctx context.Context, id string, tx Transaction) error
 }
 
-type BankAccountRepositoryAdapter struct {
-	repository appinfralayer.BankAccountRepositoryIF
-}
-
-func NewBankAccountRepositoryAdapter(repository appinfralayer.BankAccountRepositoryIF) BankAccountRepositoryAdapterIF {
-	return &BankAccountRepositoryAdapter{
-		repository: repository,
+func NewBankAccountRepositoryAdapter(
+	repository appinfralayer.BankAccountRepositoryIF,
+) BankAccountRepositoryAdapterIF {
+	return &DatabaseItemRepositoryAdapter[
+		appinfralayer.BankAccountRawData,
+		BankAccountDTO,
+		string,
+		UpdateBankAccountRequestDTO,
+	]{
+		repository:              repository,
+		convertRawDataToDtoFunc: ConvertRawDataToBankAccountDTO,
 	}
-}
-
-func (adapter *BankAccountRepositoryAdapter) Get(ctx context.Context, id string) (BankAccountDTO, error) {
-	rawdata, err := adapter.repository.Get(ctx, id)
-	if err != nil {
-		return BankAccountDTO{}, err
-	}
-	dto := BankAccountDTO{}
-	dto.SetFromRawData(rawdata)
-	return dto, nil
-}
-
-func (adapter *BankAccountRepositoryAdapter) Create(ctx context.Context, itemDTO BankAccountDTO) error {
-	return adapter.repository.Create(ctx, itemDTO.RawData())
-}
-
-func (adapter *BankAccountRepositoryAdapter) Update(ctx context.Context, id string, updateReq UpdateBankAccountRequestDTO) error {
-	return adapter.repository.Update(ctx, id, updateReq.UpdateFieldRequests())
-}
-
-func (adapter *BankAccountRepositoryAdapter) Delete(ctx context.Context, id string) error {
-	return adapter.repository.Delete(ctx, id)
 }

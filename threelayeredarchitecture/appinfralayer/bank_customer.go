@@ -10,6 +10,12 @@ type BankCustomerRepositoryIF interface {
 	Create(ctx context.Context, item BankCustomerRawData) error
 	Update(ctx context.Context, id string, updateFields UpdateFieldRequests) error
 	Delete(ctx context.Context, id string) error
+
+	// With Transaction
+	Lock(ctx context.Context, id string, txId string) (BankCustomerRawData, error)
+	TxCreate(ctx context.Context, item BankCustomerRawData, txId string) error
+	TxUpdate(ctx context.Context, id string, updateFields UpdateFieldRequests, txId string) error
+	TxDelete(ctx context.Context, id string, txId string) error
 }
 
 const TableBankCustomers = "bank_customers"
@@ -31,10 +37,6 @@ func newBankCustomerRawDataBySQLRows(rows *sql.Rows) (BankCustomerRawData, error
 	item := BankCustomerRawData{}
 	err := rows.Scan(item.ID, item.CreatedAt, item.UpdatedAt)
 	return item, err
-}
-
-type BankCustomerRepository struct {
-	sqlClient SQLClient
 }
 
 func NewBankCustomerRepository(sqlClient SQLClient, txPool TxConnectionPoolIF) BankCustomerRepositoryIF {

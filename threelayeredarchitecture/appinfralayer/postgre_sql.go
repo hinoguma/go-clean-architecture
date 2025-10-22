@@ -25,6 +25,17 @@ func (pg PostgreSQLClient) TxQueryContext(ctx context.Context, conn TransactionC
 	return SQLQueryContext(ctx, conn.tx.QueryContext, query, args...)
 }
 
+type TableRepositoryIF[T SQLDatabaseItem[T], idType string | int64] interface {
+	Get(ctx context.Context, id idType) (T, error)
+	Create(ctx context.Context, item T) error
+	Update(ctx context.Context, id idType, updateFields UpdateFieldRequests) error
+	Delete(ctx context.Context, id idType) error
+	Lock(ctx context.Context, id idType, txId string) (T, error)
+	TxCreate(ctx context.Context, item T, txId string) error
+	TxUpdate(ctx context.Context, id idType, updateFields UpdateFieldRequests, txId string) error
+	TxDelete(ctx context.Context, id idType, txId string) error
+}
+
 type TableRepository[T SQLDatabaseItem[T], idType string | int64] struct {
 	tablename   string
 	sqlClient   SQLClient
@@ -60,13 +71,13 @@ func (repo TableRepository[T, idType]) Create(ctx context.Context, item T) error
 	return err
 }
 
-func (repo TableRepository[T, idType]) Update(ctx context.Context, id string, updateFields UpdateFieldRequests) error {
+func (repo TableRepository[T, idType]) Update(ctx context.Context, id idType, updateFields UpdateFieldRequests) error {
 	stmt, params := buildUpdateQueryWithId(id, repo.tablename, updateFields)
 	_, err := repo.sqlClient.QueryContext(ctx, stmt, params...)
 	return err
 }
 
-func (repo TableRepository[T, idType]) Delete(ctx context.Context, id string) error {
+func (repo TableRepository[T, idType]) Delete(ctx context.Context, id idType) error {
 	stmt, params := buildDeleteQueryWithId(id, repo.tablename)
 	_, err := repo.sqlClient.QueryContext(ctx, stmt, params...)
 	return err
@@ -108,7 +119,7 @@ func (repo TableRepository[T, idType]) TxCreate(ctx context.Context, item T, txI
 	return err
 }
 
-func (repo TableRepository[T, idType]) TxUpdate(ctx context.Context, id string, updateFields UpdateFieldRequests, txId string) error {
+func (repo TableRepository[T, idType]) TxUpdate(ctx context.Context, id idType, updateFields UpdateFieldRequests, txId string) error {
 	conn, ok := repo.txPool.Get(txId)
 	if !ok || !conn.HasTx() {
 		return errors.New(fmt.Sprintf("Not Found tx connection. id:%s", txId))
@@ -118,7 +129,7 @@ func (repo TableRepository[T, idType]) TxUpdate(ctx context.Context, id string, 
 	return err
 }
 
-func (repo TableRepository[T, idType]) TxDelete(ctx context.Context, id string, txId string) error {
+func (repo TableRepository[T, idType]) TxDelete(ctx context.Context, id idType, txId string) error {
 	conn, ok := repo.txPool.Get(txId)
 	if !ok || !conn.HasTx() {
 		return errors.New(fmt.Sprintf("Not Found tx connection. id:%s", txId))

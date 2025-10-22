@@ -64,6 +64,10 @@ type transactionManagerAdapter struct {
 	manager appinfralayer.TransactionManagerIF
 }
 
+func NewTransactionManagerAdapter(manager appinfralayer.TransactionManagerIF) TransactionManagerAdapterIF {
+	return &transactionManagerAdapter{manager: manager}
+}
+
 func (adapter transactionManagerAdapter) Begin(ctx context.Context, req BeginTransactionRequest) (Transaction, error) {
 	opts := appinfralayer.TxOptions{
 		Isolation: req.IsolationLevel.IsolationLevel(),

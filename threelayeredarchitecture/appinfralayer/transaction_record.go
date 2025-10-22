@@ -10,6 +10,12 @@ type TransactionRecordRepositoryIF interface {
 	Create(ctx context.Context, item TransactionRecordRawData) error
 	Update(ctx context.Context, id string, updateFields UpdateFieldRequests) error
 	Delete(ctx context.Context, id string) error
+
+	// With Transaction
+	Lock(ctx context.Context, id string, txId string) (TransactionRecordRawData, error)
+	TxCreate(ctx context.Context, item TransactionRecordRawData, txId string) error
+	TxUpdate(ctx context.Context, id string, updateFields UpdateFieldRequests, txId string) error
+	TxDelete(ctx context.Context, id string, txId string) error
 }
 
 const TableTransactionRecords = "transaction_records"

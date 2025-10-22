@@ -22,10 +22,12 @@ func (dto BankCustomerDTO) RawData() appinfralayer.BankCustomerRawData {
 	return rawdata
 }
 
-func (dto *BankCustomerDTO) SetFromRawData(rawdata appinfralayer.BankCustomerRawData) {
-	dto.ID = rawdata.ID
-	dto.CreatedAt = rawdata.CreatedAt
-	dto.UpdatedAt = rawdata.UpdatedAt
+func convertRawDataToBankCustomerDTO(rawdata appinfralayer.BankCustomerRawData) BankCustomerDTO {
+	item := BankCustomerDTO{}
+	item.ID = rawdata.ID
+	item.CreatedAt = rawdata.CreatedAt
+	item.UpdatedAt = rawdata.UpdatedAt
+	return item
 }
 
 type UpdateBankCustomerRequestDTO struct {
@@ -65,29 +67,13 @@ type BankCustomerRepositoryAdapter struct {
 }
 
 func NewBankCustomerRepositoryAdapter(repository appinfralayer.BankCustomerRepositoryIF) BankCustomerRepositoryAdapterIF {
-	return &BankCustomerRepositoryAdapter{
-		repository: repository,
+	return &DatabaseItemRepositoryAdapter[
+		appinfralayer.BankCustomerRawData,
+		BankCustomerDTO,
+		string,
+		UpdateBankCustomerRequestDTO,
+	]{
+		repository:              repository,
+		convertRawDataToDtoFunc: convertRawDataToBankCustomerDTO,
 	}
-}
-
-func (adapter *BankCustomerRepositoryAdapter) Get(ctx context.Context, id string) (BankCustomerDTO, error) {
-	rawdata, err := adapter.repository.Get(ctx, id)
-	if err != nil {
-		return BankCustomerDTO{}, err
-	}
-	dto := BankCustomerDTO{}
-	dto.SetFromRawData(rawdata)
-	return dto, nil
-}
-
-func (adapter *BankCustomerRepositoryAdapter) Create(ctx context.Context, itemDTO BankCustomerDTO) error {
-	return adapter.repository.Create(ctx, itemDTO.RawData())
-}
-
-func (adapter *BankCustomerRepositoryAdapter) Update(ctx context.Context, id string, updateReq UpdateBankCustomerRequestDTO) error {
-	return adapter.repository.Update(ctx, id, updateReq.UpdateFieldRequests())
-}
-
-func (adapter *BankCustomerRepositoryAdapter) Delete(ctx context.Context, id string) error {
-	return adapter.repository.Delete(ctx, id)
 }
