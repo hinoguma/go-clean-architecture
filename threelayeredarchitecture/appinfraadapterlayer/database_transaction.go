@@ -46,6 +46,14 @@ type BeginTransactionRequest struct {
 	ReadOnly       bool
 }
 
+func NewBeginTransactionRequest() BeginTransactionRequest {
+	return BeginTransactionRequest{
+		ID:             nil,
+		IsolationLevel: IsolationLevelDefault,
+		ReadOnly:       false,
+	}
+}
+
 type Transaction struct {
 	ID string
 }

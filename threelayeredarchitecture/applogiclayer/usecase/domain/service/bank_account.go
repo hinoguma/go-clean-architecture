@@ -7,8 +7,8 @@ import (
 )
 
 type BankAccountLockServiceIF interface {
-	Lock(ctx context.Context, bankAccountID string) (model.BankAccount, error)
-	Unlock(ctx context.Context, bankAccountID string) (model.BankAccount, error)
+	Lock(ctx context.Context, bankAccountID string, tx appinfraadapterlayer.Transaction) (model.BankAccount, error)
+	//Unlock(ctx context.Context, bankAccountID string, tx appinfraadapterlayer.Transaction) (model.BankAccount, error)
 }
 
 type BankAccountLockService struct {
@@ -23,10 +23,18 @@ func NewBankAccountLockService(
 	}
 }
 
-func (s *BankAccountLockService) Lock(ctx context.Context, bankAccountID string) (model.BankAccount, error) {
-	panic("not implemented")
+func (s *BankAccountLockService) Lock(ctx context.Context, bankAccountID string, tx appinfraadapterlayer.Transaction) (model.BankAccount, error) {
+
+	itemDto, err := s.bankAccountRepository.Lock(ctx, bankAccountID, tx)
+	if err != nil {
+		return model.BankAccount{}, err
+	}
+	item := model.BankAccount{}
+	item.SetFromDTO(itemDto)
+	return item, nil
 }
 
-func (s *BankAccountLockService) Unlock(ctx context.Context, bankAccountID string) (model.BankAccount, error) {
-	panic("not implemented")
-}
+//
+//func (s *BankAccountLockService) Unlock(ctx context.Context, bankAccountID string, exTx appinfraadapterlayer.Transaction) (model.BankAccount, error) {
+//
+//}

@@ -15,10 +15,41 @@ type TransferAdapterRequest struct {
 
 type TransferAdapterResponse struct {
 	TransactionID string
+	ErrorReason   TransferAdapterErrorReason
+	Err           error
+}
+
+func NewTransferAdapterResponseByUsecaseRes(ucRes usecase.TransferUsecaseResponse) TransferAdapterResponse {
+	if ucRes.Err != nil {
+		// success
+		return TransferAdapterResponse{
+			TransactionID: ucRes.TransactionRecord.ID,
+		}
+	}
+	// error
+	return TransferAdapterResponse{
+		TransactionID: "",
+		Err:           ucRes.Err,
+		ErrorReason: TransferAdapterErrorReason{
+			AuthError:           false,
+			ValidateError:       ucRes.ErrReason.ValidateError,
+			BankAccountNotFound: ucRes.ErrReason.BankAccountNotFound,
+			InsufficientBalance: ucRes.ErrReason.InsufficientBalance,
+			InternalError:       ucRes.ErrReason.InternalError,
+		},
+	}
+}
+
+type TransferAdapterErrorReason struct {
+	AuthError           bool
+	ValidateError       bool
+	BankAccountNotFound bool
+	InsufficientBalance bool
+	InternalError       bool
 }
 
 type TransferAdapterIF interface {
-	Execute(ctx context.Context, req TransferAdapterRequest) (TransferAdapterResponse, error)
+	Execute(ctx context.Context, req TransferAdapterRequest) TransferAdapterResponse
 }
 
 type TransferAdapter struct {
@@ -32,7 +63,7 @@ func NewTransferAdapter(usecase usecase.TransferUsecaseIF) *TransferAdapter {
 	}
 }
 
-func (th *TransferAdapter) Execute(ctx context.Context, req TransferAdapterRequest) (TransferAdapterResponse, error) {
+func (th *TransferAdapter) Execute(ctx context.Context, req TransferAdapterRequest) TransferAdapterResponse {
 
 	// convert adapter request to usecase request format
 	usecaseReq := usecase.TransferUsecaseRequest{
@@ -45,13 +76,6 @@ func (th *TransferAdapter) Execute(ctx context.Context, req TransferAdapterReque
 	}
 
 	// call adapter logic
-	usecaseRes, err := th.usecase.Execute(ctx, usecaseReq)
-	if err != nil {
-		return TransferAdapterResponse{}, err
-	}
-
-	// convert usecase response to adapter response format
-	return TransferAdapterResponse{
-		TransactionID: usecaseRes.TransactionRecord.ID,
-	}, nil
+	usecaseRes := th.usecase.Execute(ctx, usecaseReq)
+	return NewTransferAdapterResponseByUsecaseRes(usecaseRes)
 }

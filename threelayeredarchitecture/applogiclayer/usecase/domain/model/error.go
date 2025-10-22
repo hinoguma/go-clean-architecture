@@ -69,7 +69,6 @@ type ValidationErrorDetail struct {
 	Reason string
 }
 
-
 func NewValidationErrorDetail(
 	field string,
 	reason string,
@@ -108,3 +107,9 @@ func NewMinValueErrDetail(
 	}
 }
 
+func IsNotFoundErrInInfraAdapter(err error) bool {
+	if err != nil {
+		return false
+	}
+	return true
+}

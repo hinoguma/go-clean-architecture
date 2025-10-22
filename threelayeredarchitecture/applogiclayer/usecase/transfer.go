@@ -14,10 +14,19 @@ type TransferUsecaseRequest struct {
 
 type TransferUsecaseResponse struct {
 	TransactionRecord model.TransactionRecord
+	ErrReason         TransferUsecaseErrorReason
+	Err               error
+}
+
+type TransferUsecaseErrorReason struct {
+	ValidateError       bool
+	BankAccountNotFound bool
+	InsufficientBalance bool
+	InternalError       bool
 }
 
 type TransferUsecaseIF interface {
-	Execute(ctx context.Context, req TransferUsecaseRequest) (TransferUsecaseResponse, error)
+	Execute(ctx context.Context, req TransferUsecaseRequest) TransferUsecaseResponse
 }
 
 type TransferUsecase struct {
@@ -32,34 +41,46 @@ func NewTransferUsecase(
 	}
 }
 
-func (uc *TransferUsecase) Execute(ctx context.Context, req TransferUsecaseRequest) (TransferUsecaseResponse, error) {
-
+func (uc *TransferUsecase) Execute(ctx context.Context, req TransferUsecaseRequest) TransferUsecaseResponse {
 	// validate request
 	appLogicErr := uc.validateRequest(req)
 	if appLogicErr != nil {
-		return TransferUsecaseResponse{}, appLogicErr
+		return TransferUsecaseResponse{
+			ErrReason: TransferUsecaseErrorReason{ValidateError: true},
+			Err:       appLogicErr,
+		}
 	}
 
+	// Transfer
 	transferReq := model.TransferRequest{
 		FromBankAccountID: req.FromBankAccountID,
 		ToBankAccountID:   req.ToBankAccountID,
 		Money:             req.Money,
 	}
-	transferRes, err := uc.transferService.Execute(transferReq)
-	if err != nil {
-		return TransferUsecaseResponse{}, err
+	transferRes := uc.transferService.Execute(ctx, transferReq)
+
+	// Error Handling
+	if transferRes.Err != nil {
+		reason := TransferUsecaseErrorReason{}
+		switch transferRes.ErrorReason {
+		case model.TransferErrorReasonBankAccountNotFound:
+			reason.BankAccountNotFound = true
+		case model.TransferErrorReasonInsufficientBalance:
+			reason.InsufficientBalance = true
+		default:
+			reason.InternalError = true
+		}
+		return TransferUsecaseResponse{
+			ErrReason: reason,
+			Err:       transferRes.Err,
+		}
 	}
 
-	// error patterns
-	// - validation error
-	// - bank account not found
-	// - bank customer not found
-	// - insufficient balance
-	// - internal error
-
+	// Success
 	return TransferUsecaseResponse{
 		TransactionRecord: transferRes.TransactionRecord,
-	}, nil
+		Err:               nil,
+	}
 }
 
 func (uc TransferUsecase) validateRequest(req TransferUsecaseRequest) *model.AppLogicError {

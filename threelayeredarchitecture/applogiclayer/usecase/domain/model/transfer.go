@@ -32,7 +32,7 @@ type TransactionRecord struct {
 	ToBankAccountID   string
 	Money             Money
 	TransferStatus    TransferStatus
-	TransferLogs	   []TransferLog
+	TransferLogs      []TransferLog
 	DataItem
 }
 
@@ -76,8 +76,8 @@ func (record TransactionRecord) DTO() appinfraadapterlayer.TransactionRecordDTO 
 	return dto
 }
 
-
 type TransferActionType string
+
 const (
 	TransferActionTypeCheckBalance TransferActionType = "CHECK_BALANCE"
 	TransferActionTypeWithdraw     TransferActionType = "WITHDRAW"
@@ -85,6 +85,7 @@ const (
 )
 
 type TransferActionStatus string
+
 const (
 	TransferActionStatusStarted    TransferActionStatus = "STARTED"
 	TransferActionStatusInProgress TransferActionStatus = "IN_PROGRESS"
@@ -92,13 +93,11 @@ const (
 	TransferActionStatusFailed     TransferActionStatus = "FAILED"
 )
 
-type TransferLog struct{
-	ActionType TransferActionType
+type TransferLog struct {
+	ActionType   TransferActionType
 	ActionStatus TransferActionStatus
-	Timestamp time.Time
+	Timestamp    time.Time
 }
-
-
 
 type TransferRequest struct {
 	FromBankAccountID string
@@ -108,4 +107,15 @@ type TransferRequest struct {
 
 type TransferResult struct {
 	TransactionRecord TransactionRecord
+	ErrorReason       TransferErrorReason
+	Err               error
 }
+
+type TransferErrorReason string
+
+const (
+	TransferErrorReasonBankAccountNotFound  TransferErrorReason = "BANK_ACCOUNT_NOT_FOUND"
+	TransferErrorReasonBankCustomerNotFound TransferErrorReason = "BANK_CUSTOMER_NOT_FOUND"
+	TransferErrorReasonInsufficientBalance  TransferErrorReason = "INSUFFICIENT_BALANCE"
+	TransferErrorReasonInternal             TransferErrorReason = "INTERNAL_ERROR"
+)

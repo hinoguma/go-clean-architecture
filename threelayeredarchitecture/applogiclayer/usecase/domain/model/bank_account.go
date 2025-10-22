@@ -25,6 +25,15 @@ func (account *BankAccount) DTO() appinfraadapterlayer.BankAccountDTO {
 	return dto
 }
 
+func (model *BankAccount) SetFromDTO(dto appinfraadapterlayer.BankAccountDTO) *BankAccount {
+	model.ID = dto.ID
+	model.OwnerBankCustomerID = dto.OwnerBankCustomerID
+	model.Balance.Amount = dto.BalanceAmount
+	model.Balance.Currency = Currency(dto.BalanceCurrency)
+	model.DataItem.SetFromDTO(dto.DatabaseItem)
+	return model
+}
+
 func (model *BankAccount) Withdraw(money Money, now time.Time) {
 	model.Balance.Amount -= money.Amount
 	model.UpdatedAt = now

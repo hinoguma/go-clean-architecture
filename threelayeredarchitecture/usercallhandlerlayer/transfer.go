@@ -25,8 +25,6 @@ func NewTransferHandler(adapter usercalladapterlayer.TransferAdapterIF) *Transfe
 }
 
 func (handler *TransferHandler) Execute(ctx context.Context, event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
-	// todo: how to handle error cases?
-
 	// convert API Gateway request to adapter request format
 	var reqBody transferRequstBodyJson
 	err := json.Unmarshal([]byte(event.Body), &reqBody)
@@ -41,16 +39,40 @@ func (handler *TransferHandler) Execute(ctx context.Context, event events.APIGat
 	}
 
 	// call adapter logic
-	adapterRes, err := handler.adapter.Execute(ctx, adapterReq)
-	if err != nil {
-		return events.APIGatewayV2HTTPResponse{}, err
+	adapterRes := handler.adapter.Execute(ctx, adapterReq)
+
+	// response
+	return handler.responseByAdapterResponse(adapterRes)
+}
+
+func (handler TransferHandler) responseByAdapterResponse(adapterRes usercalladapterlayer.TransferAdapterResponse) (events.APIGatewayV2HTTPResponse, error) {
+	if adapterRes.Err == nil {
+		// success
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 200,
+			Body:       fmt.Sprint(`{"transactionId":%s}`, adapterRes.TransactionID),
+		}, nil
 	}
 
-	// convert adapter response to API Gateway response format
-	return events.APIGatewayV2HTTPResponse{
-		StatusCode: 200,
-		Body:       fmt.Sprint(`{"transactionId":%s}`, adapterRes.TransactionID),
-	}, nil
+	if adapterRes.ErrorReason.AuthError {
+		return NewAuthErrResponse(adapterRes.Err), adapterRes.Err
+	}
+	if adapterRes.ErrorReason.ValidateError {
+		// todo: how to get validation error details
+		return NewValidateErrResponse(adapterRes.Err), adapterRes.Err
+	}
+	if adapterRes.ErrorReason.BankAccountNotFound {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 460,
+		}, adapterRes.Err
+	}
+	if adapterRes.ErrorReason.InsufficientBalance {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 461,
+		}, adapterRes.Err
+	}
+	// internal error
+	return NewInternalServerErrResponse(adapterRes.Err), adapterRes.Err
 }
 
 type transferRequstBodyJson struct {
