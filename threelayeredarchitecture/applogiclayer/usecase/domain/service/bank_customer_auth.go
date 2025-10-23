@@ -25,7 +25,9 @@ type bankCustomerAuthService struct {
 
 func (service bankCustomerAuthService) Authenticate(ctx context.Context, req model.BankCustomerAuthRequest) model.BankCustomerAuthResult {
 	adapterRes := service.bankCustomerRepository.Authenticate(
-		ctx, appinfraadapterlayer.AuthenticateRequestDTO{Token: req.Token},
+		ctx, appinfraadapterlayer.AuthenticateRequestDTO{
+			Token: req.Token, Timestamp: req.Timestamp,
+		},
 	)
 	if adapterRes.Success {
 		customer := model.BankCustomer{}

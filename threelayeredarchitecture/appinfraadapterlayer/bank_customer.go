@@ -69,6 +69,14 @@ type AuthErrorReason struct {
 	InternalError bool
 }
 
+func (reason *AuthErrorReason) SetByInfraReason(infraRes appinfralayer.BankCustomerAuthErrorReason) {
+	reason.InternalError = infraRes.InternalError
+	reason.TokenExpired = infraRes.TokenExpired
+	if infraRes.InvalidKid || infraRes.InvalidTokenUse || infraRes.InvalidAud || infraRes.InvalidISS {
+		reason.InvalidToken = true
+	}
+}
+
 type BankCustomerRepositoryAdapterIF interface {
 	Authenticate(ctx context.Context, req AuthenticateRequestDTO) BankAccountAuthResultDTO
 	Get(ctx context.Context, id string) (BankCustomerDTO, error)
@@ -78,15 +86,13 @@ type BankCustomerRepositoryAdapterIF interface {
 }
 
 type BankCustomerRepositoryAdapter struct {
-	// db
 	DatabaseItemRepositoryAdapter[
 		appinfralayer.BankCustomerRawData,
 		BankCustomerDTO,
 		string,
 		UpdateBankCustomerRequestDTO,
 	]
-
-	// auth
+	repository appinfralayer.BankCustomerRepositoryIF
 }
 
 func NewBankCustomerRepositoryAdapter(repository appinfralayer.BankCustomerRepositoryIF) BankCustomerRepositoryAdapterIF {
@@ -97,12 +103,26 @@ func NewBankCustomerRepositoryAdapter(repository appinfralayer.BankCustomerRepos
 }
 
 func (adapter BankCustomerRepositoryAdapter) Authenticate(ctx context.Context, req AuthenticateRequestDTO) BankAccountAuthResultDTO {
-	// todo: implement auth client in app infla layer
+	infraRes := adapter.repository.Authenticate(
+		ctx, appinfralayer.CognitoIDTokenJWT(req.Token), req.timestamp,
+	)
+	// success
+	if infraRes.Err == nil {
+		return BankAccountAuthResultDTO{
+			Success:     true,
+			Customer:    convertRawDataToBankCustomerDTO(infraRes.Customer),
+			Err:         nil,
+			ErrorReason: AuthErrorReason{},
+		}
+	}
 
+	// error
+	reason := AuthErrorReason{}
+	reason.SetByInfraReason(infraRes.ErrorReason)
 	return BankAccountAuthResultDTO{
 		Success:     false,
 		Customer:    BankCustomerDTO{},
-		Err:         nil,
-		ErrorReason: AuthErrorReason{},
+		Err:         infraRes.Err,
+		ErrorReason: reason,
 	}
 }

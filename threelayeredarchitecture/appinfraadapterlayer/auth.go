@@ -3,7 +3,8 @@ package appinfraadapterlayer
 import "context"
 
 type AuthenticateRequestDTO struct {
-	Token string
+	Token     string
+	Timestamp int64
 }
 
 type AuthenticateResultDTO struct {

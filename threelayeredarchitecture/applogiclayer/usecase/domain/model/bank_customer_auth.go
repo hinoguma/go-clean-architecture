@@ -7,7 +7,8 @@ type AuthErrorReason struct {
 }
 
 type BankCustomerAuthRequest struct {
-	Token string
+	Token     string
+	Timestamp int64
 }
 
 type BankCustomerAuthResult struct {
