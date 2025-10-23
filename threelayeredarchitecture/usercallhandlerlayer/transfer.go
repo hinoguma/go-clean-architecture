@@ -25,18 +25,21 @@ func NewTransferHandler(adapter usercalladapterlayer.TransferAdapterIF) *Transfe
 }
 
 func (handler *TransferHandler) Execute(ctx context.Context, event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
-	// convert API Gateway request to adapter request format
+	// convert raw body to body struct
 	var reqBody transferRequstBodyJson
 	err := json.Unmarshal([]byte(event.Body), &reqBody)
 	if err != nil {
-		return events.APIGatewayV2HTTPResponse{}, err
+		return NewCannotMarshalJsonErrResponse(), err
 	}
-	adapterReq := usercalladapterlayer.TransferAdapterRequest{
-		FromBankAccountID: reqBody.FromBankAccountID,
-		ToBankAccountID:   reqBody.ToBankAccountID,
-		Amount:            reqBody.Amount,
-		Currency:          reqBody.Currency,
+
+	// validate request
+	errDetails := reqBody.Validate()
+	if len(errDetails) > 0 {
+		return NewValidateErrResponseWithDetail(errDetails), nil
 	}
+
+	// convert to adapter request
+	adapterReq := reqBody.AdapterRequest()
 
 	// call adapter logic
 	adapterRes := handler.adapter.Execute(ctx, adapterReq)
@@ -76,8 +79,77 @@ func (handler TransferHandler) responseByAdapterResponse(adapterRes usercalladap
 }
 
 type transferRequstBodyJson struct {
-	FromBankAccountID string `json:"fromBankAccountId"`
-	ToBankAccountID   string `json:"toBankAccountId"`
-	Amount            int    `json:"amount"`
-	Currency          string `json:"currency"`
+	FromBankAccountID *string   `json:"fromBankAccountId,omitempty"`
+	ToBankAccountID   *string   `json:"toBankAccountId,omitempty"`
+	Amount            *int64    `json:"amount,omitempty"`
+	Currency          *Currency `json:"currency,omitempty"`
+}
+
+func (body transferRequstBodyJson) Validate() []ValidationErrorDetail {
+	details := make([]ValidationErrorDetail, 0)
+
+	if body.FromBankAccountID == nil {
+		details = append(details, NewRequiredValidationError("fromBankAccountId"))
+	} else if *body.FromBankAccountID == "" {
+		details = append(details, NewEmptyError("fromBankAccountId"))
+	}
+
+	if body.ToBankAccountID == nil {
+		details = append(details, NewRequiredValidationError("toBankAccountId"))
+	} else if *body.ToBankAccountID == "" {
+		details = append(details, NewEmptyError("toBankAccountId"))
+	}
+
+	if body.Amount == nil {
+		details = append(details, NewRequiredValidationError("amount"))
+	} else if *body.Amount <= 0 || *body.Amount > 50*10000 {
+		details = append(details, NewMustBeRangeError("amount", 1, 50*10000))
+	}
+
+	if body.Currency == nil {
+		details = append(details, NewRequiredValidationError("currency"))
+	} else if !body.Currency.IsValid() {
+		details = append(details, NewInvalidValueError("currency"))
+	} else {
+
+	}
+
+	return details
+}
+
+func (body transferRequstBodyJson) AdapterRequest() usercalladapterlayer.TransferAdapterRequest {
+	return usercalladapterlayer.TransferAdapterRequest{
+		FromBankAccountID: body.GetFromBankAccountID(),
+		ToBankAccountID:   body.GetToBankAccountID(),
+		Amount:            body.GetAmount(),
+		Currency:          string(body.GetCurrency()),
+	}
+}
+
+func (body transferRequstBodyJson) GetFromBankAccountID() string {
+	if body.FromBankAccountID == nil {
+		return ""
+	}
+	return *body.FromBankAccountID
+}
+
+func (body transferRequstBodyJson) GetToBankAccountID() string {
+	if body.ToBankAccountID == nil {
+		return ""
+	}
+	return *body.ToBankAccountID
+}
+
+func (body transferRequstBodyJson) GetAmount() int64 {
+	if body.Amount == nil {
+		return 0
+	}
+	return *body.Amount
+}
+
+func (body transferRequstBodyJson) GetCurrency() Currency {
+	if body.Currency == nil {
+		return ""
+	}
+	return *body.Currency
 }

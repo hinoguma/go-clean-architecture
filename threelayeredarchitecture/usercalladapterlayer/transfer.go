@@ -9,7 +9,7 @@ import (
 type TransferAdapterRequest struct {
 	FromBankAccountID string
 	ToBankAccountID   string
-	Amount            int
+	Amount            int64
 	Currency          string
 }
 
