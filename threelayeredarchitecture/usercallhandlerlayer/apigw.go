@@ -1,37 +1,36 @@
 package usercallhandlerlayer
 
-import (
-	"github.com/aws/aws-lambda-go/events"
-)
+import "github.com/aws/aws-lambda-go/events"
 
-func NewValidateErrResponse(err error) events.APIGatewayV2HTTPResponse {
+func NewValidateErrResponseUnderAdapter() events.APIGatewayV2HTTPResponse {
 	return events.APIGatewayV2HTTPResponse{
-		StatusCode: 400,
+		StatusCode: StatusCodeValidateError,
+		Body:       NewBadRequestBody().JsonString(),
 	}
 }
 
 func NewValidateErrResponseWithDetail(details []ValidationErrorDetail) events.APIGatewayV2HTTPResponse {
 	return events.APIGatewayV2HTTPResponse{
-		StatusCode: 400,
+		StatusCode: StatusCodeValidateError,
 		Body:       NewValidateErrorBody(details).JsonString(),
 	}
 }
 
 func NewCannotMarshalJsonErrResponse() events.APIGatewayV2HTTPResponse {
 	return events.APIGatewayV2HTTPResponse{
-		StatusCode: 400,
-		Body:       NewBadRequestBody().JsonString(),
+		StatusCode: StatusCodeValidateError,
+		Body:       NewCannotParseRequestBody().JsonString(),
 	}
 }
 
 func NewInternalServerErrResponse(err error) events.APIGatewayV2HTTPResponse {
 	return events.APIGatewayV2HTTPResponse{
-		StatusCode: 500,
+		StatusCode: StatusCodeInternalAppError,
 	}
 }
 
 func NewAuthErrResponse(err error) events.APIGatewayV2HTTPResponse {
 	return events.APIGatewayV2HTTPResponse{
-		StatusCode: 401,
+		StatusCode: StatusCodeUnAuth,
 	}
 }

@@ -55,7 +55,22 @@ func (dto UpdateBankCustomerRequestDTO) UpdateFieldRequests() appinfralayer.Upda
 	return reqs
 }
 
+type BankAccountAuthResultDTO struct {
+	Success  bool
+	Customer BankCustomerDTO
+
+	Err         error
+	ErrorReason AuthErrorReason
+}
+
+type AuthErrorReason struct {
+	TokenExpired  bool
+	InvalidToken  bool
+	InternalError bool
+}
+
 type BankCustomerRepositoryAdapterIF interface {
+	Authenticate(ctx context.Context, req AuthenticateRequestDTO) BankAccountAuthResultDTO
 	Get(ctx context.Context, id string) (BankCustomerDTO, error)
 	Create(ctx context.Context, itemDTO BankCustomerDTO) error
 	Update(ctx context.Context, id string, updateReq UpdateBankCustomerRequestDTO) error
@@ -63,17 +78,31 @@ type BankCustomerRepositoryAdapterIF interface {
 }
 
 type BankCustomerRepositoryAdapter struct {
-	repository appinfralayer.BankCustomerRepositoryIF
-}
-
-func NewBankCustomerRepositoryAdapter(repository appinfralayer.BankCustomerRepositoryIF) BankCustomerRepositoryAdapterIF {
-	return &DatabaseItemRepositoryAdapter[
+	// db
+	DatabaseItemRepositoryAdapter[
 		appinfralayer.BankCustomerRawData,
 		BankCustomerDTO,
 		string,
 		UpdateBankCustomerRequestDTO,
-	]{
-		repository:              repository,
-		convertRawDataToDtoFunc: convertRawDataToBankCustomerDTO,
+	]
+
+	// auth
+}
+
+func NewBankCustomerRepositoryAdapter(repository appinfralayer.BankCustomerRepositoryIF) BankCustomerRepositoryAdapterIF {
+	adapter := BankCustomerRepositoryAdapter{}
+	adapter.repository = repository
+	adapter.convertRawDataToDtoFunc = convertRawDataToBankCustomerDTO
+	return &adapter
+}
+
+func (adapter BankCustomerRepositoryAdapter) Authenticate(ctx context.Context, req AuthenticateRequestDTO) BankAccountAuthResultDTO {
+	// todo: implement auth client in app infla layer
+
+	return BankAccountAuthResultDTO{
+		Success:     false,
+		Customer:    BankCustomerDTO{},
+		Err:         nil,
+		ErrorReason: AuthErrorReason{},
 	}
 }

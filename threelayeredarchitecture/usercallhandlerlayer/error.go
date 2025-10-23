@@ -90,6 +90,13 @@ func NewBadRequestBody() ErrorResponseBody {
 	}
 }
 
+func NewCannotParseRequestBody() ErrorResponseBody {
+	return ErrorResponseBody{
+		Message: "Can not parse request body",
+		Details: nil,
+	}
+}
+
 func NewValidateErrorBody(details []ValidationErrorDetail) ErrorResponseBody {
 	return ErrorResponseBody{
 		Message: "validation error",

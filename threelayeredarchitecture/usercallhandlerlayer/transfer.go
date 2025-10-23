@@ -9,75 +9,12 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 )
 
-type TransferHandlerIF interface {
-	Execute(ctx context.Context, event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error)
-}
+/*
+**************************************
 
-type TransferHandler struct {
-	// adapter
-	adapter usercalladapterlayer.TransferAdapterIF
-}
-
-func NewTransferHandler(adapter usercalladapterlayer.TransferAdapterIF) *TransferHandler {
-	return &TransferHandler{
-		adapter: adapter,
-	}
-}
-
-func (handler *TransferHandler) Execute(ctx context.Context, event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
-	// convert raw body to body struct
-	var reqBody transferRequstBodyJson
-	err := json.Unmarshal([]byte(event.Body), &reqBody)
-	if err != nil {
-		return NewCannotMarshalJsonErrResponse(), err
-	}
-
-	// validate request
-	errDetails := reqBody.Validate()
-	if len(errDetails) > 0 {
-		return NewValidateErrResponseWithDetail(errDetails), nil
-	}
-
-	// convert to adapter request
-	adapterReq := reqBody.AdapterRequest()
-
-	// call adapter logic
-	adapterRes := handler.adapter.Execute(ctx, adapterReq)
-
-	// response
-	return handler.responseByAdapterResponse(adapterRes)
-}
-
-func (handler TransferHandler) responseByAdapterResponse(adapterRes usercalladapterlayer.TransferAdapterResponse) (events.APIGatewayV2HTTPResponse, error) {
-	if adapterRes.Err == nil {
-		// success
-		return events.APIGatewayV2HTTPResponse{
-			StatusCode: 200,
-			Body:       fmt.Sprint(`{"transactionId":%s}`, adapterRes.TransactionID),
-		}, nil
-	}
-
-	if adapterRes.ErrorReason.AuthError {
-		return NewAuthErrResponse(adapterRes.Err), adapterRes.Err
-	}
-	if adapterRes.ErrorReason.ValidateError {
-		// todo: how to get validation error details
-		return NewValidateErrResponse(adapterRes.Err), adapterRes.Err
-	}
-	if adapterRes.ErrorReason.BankAccountNotFound {
-		return events.APIGatewayV2HTTPResponse{
-			StatusCode: 460,
-		}, adapterRes.Err
-	}
-	if adapterRes.ErrorReason.InsufficientBalance {
-		return events.APIGatewayV2HTTPResponse{
-			StatusCode: 461,
-		}, adapterRes.Err
-	}
-	// internal error
-	return NewInternalServerErrResponse(adapterRes.Err), adapterRes.Err
-}
-
+		Request
+	 **************************************
+*/
 type transferRequstBodyJson struct {
 	FromBankAccountID *string   `json:"fromBankAccountId,omitempty"`
 	ToBankAccountID   *string   `json:"toBankAccountId,omitempty"`
@@ -152,4 +89,87 @@ func (body transferRequstBodyJson) GetCurrency() Currency {
 		return ""
 	}
 	return *body.Currency
+}
+
+/***************************************
+	Handler
+ ***************************************/
+
+type TransferHandlerIF interface {
+	Execute(ctx context.Context, event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error)
+}
+
+type TransferHandler struct {
+	adapter usercalladapterlayer.TransferAdapterIF
+}
+
+func NewTransferHandler(adapter usercalladapterlayer.TransferAdapterIF) *TransferHandler {
+	return &TransferHandler{
+		adapter: adapter,
+	}
+}
+
+func (handler *TransferHandler) Execute(ctx context.Context, event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+	// convert raw body to body struct
+	var reqBody transferRequstBodyJson
+	err := json.Unmarshal([]byte(event.Body), &reqBody)
+	if err != nil {
+		return NewCannotMarshalJsonErrResponse(), err
+	}
+
+	// validate request
+	errDetails := reqBody.Validate()
+	if len(errDetails) > 0 {
+		return NewValidateErrResponseWithDetail(errDetails), nil
+	}
+
+	// convert to adapter request
+	adapterReq := reqBody.AdapterRequest()
+
+	// call adapter logic
+	adapterRes := handler.adapter.Execute(ctx, adapterReq)
+
+	// response
+	return handler.responseByAdapterResponse(adapterRes)
+}
+
+/***************************************
+	Response
+ ***************************************/
+
+const (
+	CodeBankAccountNotFound = 460
+	CodeInsufficientBalance = 461
+)
+
+func (handler TransferHandler) responseByAdapterResponse(adapterRes usercalladapterlayer.TransferAdapterResponse) (events.APIGatewayV2HTTPResponse, error) {
+	if adapterRes.Err == nil {
+		// success
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: 200,
+			Body:       fmt.Sprint(`{"transactionId":%s}`, adapterRes.TransactionID),
+		}, nil
+	}
+
+	if adapterRes.ErrorReason.AuthError {
+		return NewAuthErrResponse(adapterRes.Err), adapterRes.Err
+	}
+
+	if adapterRes.ErrorReason.ValidateError {
+		return NewValidateErrResponseUnderAdapter(), adapterRes.Err
+	}
+
+	if adapterRes.ErrorReason.BankAccountNotFound {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: CodeBankAccountNotFound,
+		}, adapterRes.Err
+	}
+
+	if adapterRes.ErrorReason.InsufficientBalance {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: CodeInsufficientBalance,
+		}, adapterRes.Err
+	}
+	// internal error
+	return NewInternalServerErrResponse(adapterRes.Err), adapterRes.Err
 }

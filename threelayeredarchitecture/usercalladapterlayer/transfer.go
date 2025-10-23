@@ -31,7 +31,7 @@ func NewTransferAdapterResponseByUsecaseRes(ucRes usecase.TransferUsecaseRespons
 		TransactionID: "",
 		Err:           ucRes.Err,
 		ErrorReason: TransferAdapterErrorReason{
-			AuthError:           false,
+			AuthError:           ucRes.ErrReason.AuthenticateError,
 			ValidateError:       ucRes.ErrReason.ValidateError,
 			BankAccountNotFound: ucRes.ErrReason.BankAccountNotFound,
 			InsufficientBalance: ucRes.ErrReason.InsufficientBalance,

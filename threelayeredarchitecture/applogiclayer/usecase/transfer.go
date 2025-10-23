@@ -7,6 +7,7 @@ import (
 )
 
 type TransferUsecaseRequest struct {
+	AuthToken         string
 	FromBankAccountID string
 	ToBankAccountID   string
 	Money             model.Money
@@ -19,6 +20,7 @@ type TransferUsecaseResponse struct {
 }
 
 type TransferUsecaseErrorReason struct {
+	AuthenticateError   bool
 	ValidateError       bool
 	BankAccountNotFound bool
 	InsufficientBalance bool
@@ -30,18 +32,36 @@ type TransferUsecaseIF interface {
 }
 
 type TransferUsecase struct {
+	authService     service.BankCustomerAuthServiceIF
 	transferService service.TransferServiceIF
 }
 
 func NewTransferUsecase(
+	authService service.BankCustomerAuthServiceIF,
 	transferService service.TransferServiceIF,
 ) TransferUsecaseIF {
 	return &TransferUsecase{
+		authService:     authService,
 		transferService: transferService,
 	}
 }
 
 func (uc *TransferUsecase) Execute(ctx context.Context, req TransferUsecaseRequest) TransferUsecaseResponse {
+	// Authentication
+	authRes := uc.authService.Authenticate(ctx, model.BankCustomerAuthRequest{Token: req.AuthToken})
+	if !authRes.IsSuccess() {
+		reason := TransferUsecaseErrorReason{}
+		if authRes.IsAuthenticateFailedError() {
+			reason.AuthenticateError = true
+		} else {
+			reason.InternalError = true
+		}
+		return TransferUsecaseResponse{
+			ErrReason: reason,
+			Err:       authRes.Err,
+		}
+	}
+
 	// validate request
 	appLogicErr := uc.validateRequest(req)
 	if appLogicErr != nil {
