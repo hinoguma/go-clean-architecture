@@ -1,6 +1,8 @@
 package appinfralayer
 
 import (
+	"app/threelayeredarchitecture/crosscuttinglayer"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -21,11 +23,11 @@ func NewCognitoIDTokenJWTHeaderByStr(s string) (CognitoIDTokenJWTHeader, error) 
 	value := CognitoIDTokenJWTHeader{}
 	headerDec, err := DecodeBase64URL(s)
 	if err != nil {
-		return value, err
+		return value, crosscuttinglayer.NewError(err, context.TODO())
 	}
 	err = json.Unmarshal(headerDec, &value)
 	if err != nil {
-		return value, err
+		return value, crosscuttinglayer.NewError(err, context.TODO())
 	}
 	return value, nil
 }
@@ -63,11 +65,11 @@ func NewCognitoIDTokenJWTPayloadByStr(s string) (CognitoIDTokenJWTPayload, error
 	value := CognitoIDTokenJWTPayload{}
 	headerDec, err := DecodeBase64URL(s)
 	if err != nil {
-		return value, err
+		return value, crosscuttinglayer.NewError(err, context.TODO())
 	}
 	err = json.Unmarshal(headerDec, &value)
 	if err != nil {
-		return value, err
+		return value, crosscuttinglayer.NewError(err, context.TODO())
 	}
 	return value, nil
 }
@@ -78,16 +80,18 @@ func (value CognitoIDTokenJWT) GetHeaderAndPayload() (CognitoIDTokenJWTHeader, C
 	jwtStr := string(value)
 	jwtSlice := strings.Split(jwtStr, JWTPartsDelim)
 	if len(jwtSlice) != JWTPartsLength {
-		return CognitoIDTokenJWTHeader{}, CognitoIDTokenJWTPayload{}, fmt.Errorf(`length of jwt parts is %d, must be 3.`, len(jwtSlice))
+		return CognitoIDTokenJWTHeader{}, CognitoIDTokenJWTPayload{}, crosscuttinglayer.NewAppUtilError(
+			fmt.Sprintf(`length of jwt parts is %d, must be 3.`, len(jwtSlice)), context.TODO(),
+		)
 	}
 	header, err := NewCognitoIDTokenJWTHeaderByStr(jwtSlice[0])
 	if err != nil {
-		return header, CognitoIDTokenJWTPayload{}, err
+		return header, CognitoIDTokenJWTPayload{}, crosscuttinglayer.ErrLift(err, context.TODO())
 	}
 
 	payload, err := NewCognitoIDTokenJWTPayloadByStr(jwtSlice[1])
 	if err != nil {
-		return header, payload, err
+		return header, payload, crosscuttinglayer.ErrLift(err, context.TODO())
 	}
 	return header, payload, nil
 }
@@ -103,8 +107,11 @@ func DecodeBase64URL(data string) ([]byte, error) {
 	case 3:
 		data += "=" // 1 pad char
 	}
-
-	return base64.StdEncoding.DecodeString(data)
+	b, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return nil, crosscuttinglayer.NewError(err, context.TODO())
+	}
+	return b, nil
 }
 
 type JSONWebKeys struct {

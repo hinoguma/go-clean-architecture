@@ -2,6 +2,7 @@ package appinfraadapterlayer
 
 import (
 	"app/threelayeredarchitecture/appinfralayer"
+	"app/threelayeredarchitecture/crosscuttinglayer"
 	"context"
 )
 
@@ -104,7 +105,7 @@ func NewBankCustomerRepositoryAdapter(repository appinfralayer.BankCustomerRepos
 
 func (adapter BankCustomerRepositoryAdapter) Authenticate(ctx context.Context, req AuthenticateRequestDTO) BankAccountAuthResultDTO {
 	infraRes := adapter.repository.Authenticate(
-		ctx, appinfralayer.CognitoIDTokenJWT(req.Token), req.timestamp,
+		ctx, appinfralayer.CognitoIDTokenJWT(req.Token), req.Timestamp,
 	)
 	// success
 	if infraRes.Err == nil {
@@ -122,7 +123,7 @@ func (adapter BankCustomerRepositoryAdapter) Authenticate(ctx context.Context, r
 	return BankAccountAuthResultDTO{
 		Success:     false,
 		Customer:    BankCustomerDTO{},
-		Err:         infraRes.Err,
+		Err:         crosscuttinglayer.ErrLift(infraRes.Err, ctx),
 		ErrorReason: reason,
 	}
 }

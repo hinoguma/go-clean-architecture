@@ -9,7 +9,7 @@ import (
 
 func ErrWrap(wrapped, wrapper error) error {
 	if !IsBaseError(wrapped) {
-		wrapped = NewError(wrapped)
+		wrapped = NewError(wrapped, context.TODO())
 	}
 	if wrapper == nil {
 		return wrapped
@@ -17,20 +17,21 @@ func ErrWrap(wrapped, wrapper error) error {
 	return errors.Join(wrapped, wrapper)
 }
 
-func ErrLift(err error) error {
+func ErrLift(err error, ctx context.Context) error {
 	if !IsBaseError(err) {
-		err = NewError(err)
+		err = NewError(err, ctx)
 	}
 	return err
 }
 
-func NewError(err error) BaseError {
+func NewError(err error, ctx context.Context) BaseError {
 	e := BaseError{
 		err:        err,
 		stacktrace: NewStankTrace(4),
 		attributes: make(map[string]interface{}),
 		requestID:  "",
 	}
+	e.WithContext(ctx)
 	return e
 }
 
@@ -129,8 +130,8 @@ const (
 )
 
 // error in golang standard library or imported library
-func NewLibraryError(err error) LibraryError {
-	be := NewError(err)
+func NewLibraryError(err error, ctx context.Context) LibraryError {
+	be := NewError(err, ctx)
 	be.category = CategoryLibraryError
 	return LibraryError{BaseError: be}
 }
@@ -140,8 +141,8 @@ type LibraryError struct {
 }
 
 // error in our codes
-func NewAppUtilError(message string) AppUtilError {
-	be := NewError(errors.New(message))
+func NewAppUtilError(message string, ctx context.Context) AppUtilError {
+	be := NewError(errors.New(message), ctx)
 	be.category = CategoryAppUtilError
 	return AppUtilError{BaseError: be}
 }
@@ -155,14 +156,14 @@ type DataNotFound struct {
 	BaseError
 }
 
-func NewDataNotFound(err error) DataNotFound {
-	be := NewError(err)
+func NewDataNotFound(err error, ctx context.Context) DataNotFound {
+	be := NewError(err, ctx)
 	be.category = CategoryDataNotFound
 	return DataNotFound{BaseError: be}
 }
 
-func NewDataNotFoundWithID(err error, id interface{}) DataNotFound {
-	e := NewDataNotFound(err)
+func NewDataNotFoundWithID(err error, id interface{}, ctx context.Context) DataNotFound {
+	e := NewDataNotFound(err, ctx)
 	e.ID(id)
 	return e
 }
@@ -174,6 +175,13 @@ func (e *DataNotFound) ID(id interface{}) *DataNotFound {
 func (e *DataNotFound) Key(field string, value interface{}) *DataNotFound {
 	e.Attr(field, value)
 	return e
+}
+
+func IsDataNotFound(err error) bool {
+	if err != nil {
+		return false
+	}
+	return errors.As(err, &DataNotFound{})
 }
 
 // forbidden

@@ -8,6 +8,7 @@ import (
 )
 
 type TransferUsecaseRequest struct {
+	IdempotencyKey    string
 	AuthToken         string
 	FromBankAccountID string
 	ToBankAccountID   string
@@ -75,6 +76,7 @@ func (uc *TransferUsecase) Execute(ctx context.Context, req TransferUsecaseReque
 
 	// Transfer
 	transferReq := model.TransferRequest{
+		IdempotencyKey:    req.IdempotencyKey,
 		FromBankAccountID: req.FromBankAccountID,
 		ToBankAccountID:   req.ToBankAccountID,
 		Money:             req.Money,

@@ -1,6 +1,7 @@
 package appinfralayer
 
 import (
+	"app/threelayeredarchitecture/crosscuttinglayer"
 	"context"
 	"database/sql"
 )
@@ -15,7 +16,10 @@ type BankAccountRawData struct {
 func newBankAccountRawDataBySQLRows(rows *sql.Rows) (BankAccountRawData, error) {
 	newItem := BankAccountRawData{}
 	err := rows.Scan(&newItem.ID, &newItem.CreatedAt, &newItem.UpdatedAt)
-	return newItem, err
+	if err != nil {
+		return newItem, crosscuttinglayer.ErrLift(err, context.TODO())
+	}
+	return newItem, nil
 }
 
 func (item BankAccountRawData) ToMap() map[string]interface{} {

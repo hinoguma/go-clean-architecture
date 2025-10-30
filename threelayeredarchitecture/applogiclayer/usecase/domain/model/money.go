@@ -33,13 +33,16 @@ func (value Money) IsValidCurrency() bool {
 	}
 }
 
+func (value Money) IsEqual(another Money) bool {
+	return value.Amount == another.Amount && value.Currency == another.Currency
+}
+
 func (value Money) IsLessThan(other Money) bool {
 	if value.Currency != other.Currency {
 		return false
 	}
 	return value.Amount < other.Amount
 }
-
 
 func NewUSD(amount int64) Money {
 	return Money{
@@ -54,7 +57,6 @@ func NewEUR(amount int64) Money {
 		Currency: EUR,
 	}
 }
-
 
 func NewJPY(amount int64) Money {
 	return Money{

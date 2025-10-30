@@ -90,9 +90,9 @@ func (adapter transactionManagerAdapter) Begin(ctx context.Context, req BeginTra
 	}
 	tx, err := adapter.manager.Begin(ctx, id, &opts)
 	if err != nil {
-		return Transaction{}, err
+		return Transaction{}, crosscuttinglayer.ErrLift(err, ctx)
 	}
-	return Transaction{ID: tx.GetID()}, err
+	return Transaction{ID: tx.GetID()}, nil
 }
 
 func (adapter transactionManagerAdapter) Rollback(ctx context.Context, tx Transaction) error {

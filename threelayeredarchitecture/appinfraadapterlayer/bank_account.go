@@ -79,6 +79,7 @@ type BankAccountRepositoryAdapterIF interface {
 	Delete(ctx context.Context, id string) error
 	Lock(ctx context.Context, id string, tx Transaction) (BankAccountDTO, error)
 	TxCreate(ctx context.Context, itemDTO BankAccountDTO, tx Transaction) error
+	TxPut(ctx context.Context, itemDTO BankAccountDTO, tx Transaction) error
 	TxUpdate(ctx context.Context, id string, updateReq UpdateBankAccountRequestDTO, tx Transaction) error
 	TxDelete(ctx context.Context, id string, tx Transaction) error
 }
@@ -86,13 +87,18 @@ type BankAccountRepositoryAdapterIF interface {
 func NewBankAccountRepositoryAdapter(
 	repository appinfralayer.BankAccountRepositoryIF,
 ) BankAccountRepositoryAdapterIF {
-	return &DatabaseItemRepositoryAdapter[
+	adapter := BankAccountRepositoryAdapter{}
+	adapter.repository = repository
+	adapter.convertRawDataToDtoFunc = ConvertRawDataToBankAccountDTO
+	return &adapter
+}
+
+type BankAccountRepositoryAdapter struct {
+	DatabaseItemRepositoryAdapter[
 		appinfralayer.BankAccountRawData,
 		BankAccountDTO,
 		string,
 		UpdateBankAccountRequestDTO,
-	]{
-		repository:              repository,
-		convertRawDataToDtoFunc: ConvertRawDataToBankAccountDTO,
-	}
+	]
+	repository appinfralayer.BankAccountRepositoryIF
 }

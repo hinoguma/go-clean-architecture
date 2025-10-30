@@ -14,19 +14,25 @@ const (
 type TransferStatus string
 
 const (
-	TransferStatusInCheckBalance TransferStatus = "IN_CHECK_BALANCE"
-	TransferStatusInTransfer     TransferStatus = "IN_TRANSFER"
-	TransferStatusCompleted      TransferStatus = "COMPLETED"
+	TransferStatusPrepare         TransferStatus = "PREPARE"
+	TransferStatusFromBankAccount TransferStatus = "LOCK_FROM_BANK_ACCOUNT"
+	TransferStatusToBankAccount   TransferStatus = "LOCK_TO_BANK_ACCOUNT"
+	TransferStatusInCheckBalance  TransferStatus = "IN_CHECK_BALANCE"
+	TransferStatusInTransfer      TransferStatus = "IN_TRANSFER"
+	TransferStatusCompleted       TransferStatus = "COMPLETED"
 
-	TransferStatusInCheckBalanceFailed TransferStatus = "IN_CHECK_BALANCE_FAILED"
-	TransferStatusInTransferFailed     TransferStatus = "IN_TRANSFER_FAILED"
-	TransferStatusUnknownFailed        TransferStatus = "UNKNOWN_FAILED"
+	TransferStatusFromBankAccountFailed TransferStatus = "FROM_BANK_ACCOUNT_FAILED"
+	TransferStatusToBankAccountFailed   TransferStatus = "TO_BANK_ACCOUNT_FAILED"
+	TransferStatusInCheckBalanceFailed  TransferStatus = "IN_CHECK_BALANCE_FAILED"
+	TransferStatusInTransferFailed      TransferStatus = "IN_TRANSFER_FAILED"
+	TransferStatusUnknownFailed         TransferStatus = "UNKNOWN_FAILED"
 )
 
 type TransferRecord struct{}
 
 type TransactionRecord struct {
 	ID                string
+	IdempotencyKey    string
 	Type              TransactionType
 	FromBankAccountID string
 	ToBankAccountID   string
@@ -36,28 +42,50 @@ type TransactionRecord struct {
 	DataItem
 }
 
+func (record *TransactionRecord) SetFromDTO(dto appinfraadapterlayer.TransactionRecordDTO) *TransactionRecord {
+	record.ID = dto.ID
+	record.IdempotencyKey = dto.IdempotencyKey
+	record.Type = TransactionType(dto.Type)
+	record.FromBankAccountID = dto.FromBankAccountID
+	record.ToBankAccountID = dto.ToBankAccountID
+	record.Money.Amount = dto.Amount
+	record.Money.Currency = Currency(dto.Currency)
+	record.DataItem.SetFromDTO(dto.DatabaseItem)
+	return record
+}
+
 func (record *TransactionRecord) SetTransferStatus(status TransferStatus) *TransactionRecord {
 	record.TransferStatus = status
 	return record
 }
 
 func (record *TransactionRecord) SetTransferCompleted() *TransactionRecord {
-	record.TransferStatus = "COMPLETED"
+	record.TransferStatus = TransferStatusCompleted
 	return record
+}
+
+func (record TransactionRecord) IsCompleted() bool {
+	return record.TransferStatus == TransferStatusCompleted
+}
+
+func (record TransactionRecord) IsConsistantRequest(req TransferRequest) bool {
+	return record.IdempotencyKey == req.IdempotencyKey &&
+		record.FromBankAccountID == req.FromBankAccountID &&
+		record.ToBankAccountID == req.ToBankAccountID &&
+		record.Money.IsEqual(req.Money)
 }
 
 func NewTransferRecord(
 	id string,
-	fromBankAccountID string,
-	toBankAccountID string,
-	money Money,
+	req TransferRequest,
 	createdAt time.Time,
 ) TransactionRecord {
 	item := TransactionRecord{
 		ID:                id,
-		FromBankAccountID: fromBankAccountID,
-		ToBankAccountID:   toBankAccountID,
-		Money:             money,
+		IdempotencyKey:    req.IdempotencyKey,
+		FromBankAccountID: req.FromBankAccountID,
+		ToBankAccountID:   req.ToBankAccountID,
+		Money:             req.Money,
 	}
 	item.CreatedAt = createdAt
 	return item
@@ -100,6 +128,7 @@ type TransferLog struct {
 }
 
 type TransferRequest struct {
+	IdempotencyKey    string
 	FromBankAccountID string
 	ToBankAccountID   string
 	Money             Money
@@ -114,6 +143,7 @@ type TransferResult struct {
 type TransferErrorReason string
 
 const (
+	TransferErrorReasonNotConsistRequest    TransferErrorReason = "NOT_CONSIST_REQUEST"
 	TransferErrorReasonBankAccountNotFound  TransferErrorReason = "BANK_ACCOUNT_NOT_FOUND"
 	TransferErrorReasonBankCustomerNotFound TransferErrorReason = "BANK_CUSTOMER_NOT_FOUND"
 	TransferErrorReasonInsufficientBalance  TransferErrorReason = "INSUFFICIENT_BALANCE"

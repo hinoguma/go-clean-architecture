@@ -2,6 +2,7 @@ package appinfraadapterlayer
 
 import (
 	"app/threelayeredarchitecture/appinfralayer"
+	"app/threelayeredarchitecture/crosscuttinglayer"
 	"context"
 )
 
@@ -37,10 +38,12 @@ type DatabaseItemRepositoryAdapterIF[
 ] interface {
 	Get(ctx context.Context, id idType) (DTOType, error)
 	Create(ctx context.Context, itemDTO DTOType) error
+	Put(ctx context.Context, itemDTO DTOType) error
 	Update(ctx context.Context, id idType, updateReq updateRequestType) error
 	Delete(ctx context.Context, id idType) error
 	Lock(ctx context.Context, id idType, tx Transaction) (DTOType, error)
 	TxCreate(ctx context.Context, itemDTO DTOType, tx Transaction) error
+	TxPut(ctx context.Context, itemDTO DTOType, tx Transaction) error
 	TxUpdate(ctx context.Context, id idType, updateReq updateRequestType, tx Transaction) error
 	TxDelete(ctx context.Context, id idType, tx Transaction) error
 }
@@ -59,7 +62,7 @@ func (adapter *DatabaseItemRepositoryAdapter[RawDataType, DTOType, idType, updat
 	var dto DTOType
 	rawdata, err := adapter.repository.Get(ctx, id)
 	if err != nil {
-		return dto, err
+		return dto, crosscuttinglayer.ErrLift(err, ctx)
 	}
 	dto = adapter.convertRawDataToDtoFunc(rawdata)
 	return dto, nil
@@ -67,6 +70,10 @@ func (adapter *DatabaseItemRepositoryAdapter[RawDataType, DTOType, idType, updat
 
 func (adapter *DatabaseItemRepositoryAdapter[RawDataType, DTOType, idType, updateReqType]) Create(ctx context.Context, itemDTO DTOType) error {
 	return adapter.repository.Create(ctx, itemDTO.RawData())
+}
+
+func (adapter *DatabaseItemRepositoryAdapter[RawDataType, DTOType, idType, updateReqType]) Put(ctx context.Context, itemDTO DTOType) error {
+	return adapter.repository.Put(ctx, itemDTO.RawData())
 }
 
 func (adapter *DatabaseItemRepositoryAdapter[RawDataType, DTOType, idType, updateReqType]) Update(ctx context.Context, id idType, updateReq updateReqType) error {
@@ -89,6 +96,10 @@ func (adapter *DatabaseItemRepositoryAdapter[RawDataType, DTOType, idType, updat
 
 func (adapter *DatabaseItemRepositoryAdapter[RawDataType, DTOType, idType, updateReqType]) TxCreate(ctx context.Context, itemDTO DTOType, tx Transaction) error {
 	return adapter.repository.TxCreate(ctx, itemDTO.RawData(), tx.ID)
+}
+
+func (adapter *DatabaseItemRepositoryAdapter[RawDataType, DTOType, idType, updateReqType]) TxPut(ctx context.Context, itemDTO DTOType, tx Transaction) error {
+	return adapter.repository.TxPut(ctx, itemDTO.RawData(), tx.ID)
 }
 
 func (adapter *DatabaseItemRepositoryAdapter[RawDataType, DTOType, idType, updateReqType]) TxUpdate(ctx context.Context, id idType, updateReq updateReqType, tx Transaction) error {

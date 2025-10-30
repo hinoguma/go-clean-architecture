@@ -1,10 +1,10 @@
 package appinfralayer
 
 import (
+	"app/threelayeredarchitecture/crosscuttinglayer"
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"sync"
 )
 
@@ -148,20 +148,22 @@ func (mng transactionManager) Begin(ctx context.Context, id string, opts *TxOpti
 	}
 	tx, err := mng.client.BeginTx(ctx, sqlOpts)
 	if err != nil {
-		return TransactionConnection{}, err
+		return TransactionConnection{}, crosscuttinglayer.ErrLift(err, ctx)
 	}
 	con := TransactionConnection{
 		id: id,
 		tx: tx,
 	}
 	txConMngSingle.Set(con)
-	return con, err
+	return con, nil
 }
 
 func (mng transactionManager) Rollback(ctx context.Context, id string) error {
 	conn, ok := txConMngSingle.Get(id)
 	if !ok || !conn.HasTx() {
-		return errors.New(fmt.Sprintf("Not Found tx connection. id:%s", id))
+		err := crosscuttinglayer.NewError(errors.New("Not Found tx connection."), ctx)
+		err.Attr("txId", id)
+		return err
 	}
 	return conn.tx.Rollback()
 }
@@ -169,7 +171,9 @@ func (mng transactionManager) Rollback(ctx context.Context, id string) error {
 func (mng transactionManager) Commit(ctx context.Context, id string) error {
 	conn, ok := txConMngSingle.Get(id)
 	if !ok || !conn.HasTx() {
-		return errors.New(fmt.Sprintf("Not Found tx connection. id:%s", id))
+		err := crosscuttinglayer.NewError(errors.New("Not Found tx connection."), ctx)
+		err.Attr("txId", id)
+		return err
 	}
 	return conn.tx.Commit()
 }
