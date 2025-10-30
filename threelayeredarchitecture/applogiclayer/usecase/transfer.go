@@ -3,8 +3,8 @@ package usecase
 import (
 	"app/threelayeredarchitecture/applogiclayer/usecase/domain/model"
 	"app/threelayeredarchitecture/applogiclayer/usecase/domain/service"
+	"app/threelayeredarchitecture/crosscuttinglayer"
 	"context"
-	"time"
 )
 
 type TransferUsecaseRequest struct {
@@ -49,8 +49,8 @@ func NewTransferUsecase(
 
 func (uc *TransferUsecase) Execute(ctx context.Context, req TransferUsecaseRequest) TransferUsecaseResponse {
 	// Authentication
-	nowTs := time.Now().Unix() // todo: implement in crosscutting infra layer
-	authRes := uc.authService.Authenticate(ctx, model.BankCustomerAuthRequest{Token: req.AuthToken, Timestamp: nowTs})
+	nowTs := crosscuttinglayer.NowTs()
+	authRes := uc.authService.Authenticate(ctx, model.BankCustomerAuthRequest{Token: req.AuthToken, Timestamp: nowTs.Int64()})
 	if !authRes.IsSuccess() {
 		reason := TransferUsecaseErrorReason{}
 		if authRes.IsAuthenticateFailedError() {

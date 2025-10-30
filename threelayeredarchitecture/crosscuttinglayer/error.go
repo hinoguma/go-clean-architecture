@@ -188,14 +188,3 @@ type EncodeFailed struct {
 type DecodeFailed struct {
 	BaseError
 }
-
-/**
-error in our codes
-data not found error
-data locked
-unauthorized error
-can not encode
-can not decode
-validation error
-
-*/
