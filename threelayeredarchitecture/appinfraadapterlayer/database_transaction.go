@@ -2,6 +2,7 @@ package appinfraadapterlayer
 
 import (
 	"app/threelayeredarchitecture/appinfralayer"
+	"app/threelayeredarchitecture/crosscuttinglayer"
 	"context"
 )
 
@@ -83,7 +84,7 @@ func (adapter transactionManagerAdapter) Begin(ctx context.Context, req BeginTra
 	}
 	id := ""
 	if req.ID == nil {
-		// todo: uuid v4
+		id = crosscuttinglayer.IssueRandomStrID()
 	} else {
 		id = *req.ID
 	}
