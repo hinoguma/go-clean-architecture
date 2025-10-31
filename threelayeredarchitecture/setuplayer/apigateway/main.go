@@ -50,11 +50,9 @@ func handler(ctx context.Context, event events.APIGatewayV2HTTPRequest) (events.
 		if event.RequestContext.HTTP.Method == "POST" {
 			return transferHandler(ctx, event)
 		}
-	default:
-		return events.APIGatewayV2HTTPResponse{
-			StatusCode: 404,
-			Body:       "Not Found",
-		}, nil
 	}
-
+	return events.APIGatewayV2HTTPResponse{
+		StatusCode: 404,
+		Body:       "Not Found",
+	}, nil
 }
