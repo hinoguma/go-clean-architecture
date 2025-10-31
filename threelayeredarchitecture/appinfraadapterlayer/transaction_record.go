@@ -14,12 +14,20 @@ type TransactionRecordDTO struct {
 	ToBankAccountID   string
 	Amount            int64
 	Currency          string
+	TransferStatus    string
 	DatabaseItem
 }
 
 func (dto TransactionRecordDTO) RawData() appinfralayer.TransactionRecordRawData {
 	rawdata := appinfralayer.TransactionRecordRawData{
-		ID: dto.ID,
+		ID:                dto.ID,
+		Type:              dto.Type,
+		IdempotencyKey:    dto.IdempotencyKey,
+		FromBankAccountID: dto.FromBankAccountID,
+		ToBankAccountID:   dto.ToBankAccountID,
+		Amount:            dto.Amount,
+		Currency:          dto.Currency,
+		TransferStatus:    dto.TransferStatus,
 		DatabaseItem: appinfralayer.DatabaseItem{
 			CreatedAt: dto.CreatedAt,
 			UpdatedAt: dto.UpdatedAt,
@@ -59,6 +67,7 @@ type TransactionRecordRepositoryAdapterIF interface {
 	Put(ctx context.Context, itemDTO TransactionRecordDTO) error
 	Update(ctx context.Context, id string, updateReq UpdateTransactionRecordRequestDTO) error
 	Delete(ctx context.Context, id string) error
+	Lock(ctx context.Context, id string, tx Transaction) (TransactionRecordDTO, error)
 	TxCreate(ctx context.Context, itemDTO TransactionRecordDTO, tx Transaction) error
 	TxPut(ctx context.Context, itemDTO TransactionRecordDTO, tx Transaction) error
 }

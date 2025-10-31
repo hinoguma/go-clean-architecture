@@ -88,7 +88,7 @@ func (adapter *DatabaseItemRepositoryAdapter[RawDataType, DTOType, idType, updat
 	var dto DTOType
 	rawdata, err := adapter.repository.Lock(ctx, id, tx.ID)
 	if err != nil {
-		return dto, err
+		return dto, crosscuttinglayer.ErrLift(err, ctx)
 	}
 	dto = adapter.convertRawDataToDtoFunc(rawdata)
 	return dto, nil

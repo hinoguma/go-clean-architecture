@@ -6,6 +6,8 @@ import (
 	"fmt"
 )
 
+// todo: think about crosscuttinglayer errors and if need, fix this implementation
+
 type ErrorCode string
 
 const (

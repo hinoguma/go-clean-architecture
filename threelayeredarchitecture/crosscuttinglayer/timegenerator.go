@@ -15,6 +15,10 @@ func NowTs() UnixTimestamp {
 	return globalTimeGenerator.NowTs()
 }
 
+func Now() time.Time {
+	return globalTimeGenerator.Now()
+}
+
 func NowTsMills() UnixTimestampMillis {
 	return globalTimeGenerator.NowTsMills()
 }

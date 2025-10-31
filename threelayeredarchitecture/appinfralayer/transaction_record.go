@@ -33,6 +33,7 @@ type TransactionRecordRawData struct {
 	ToBankAccountID   string
 	Amount            int64
 	Currency          string
+	TransferStatus    string
 	DatabaseItem
 }
 
@@ -45,6 +46,7 @@ func (item TransactionRecordRawData) ToMap() map[string]interface{} {
 		"toBankAccountId":   item.ToBankAccountID,
 		"amount":            item.Amount,
 		"currency":          item.Currency,
+		"transferStatus":    item.TransferStatus,
 		"createdAt":         item.CreatedAt,
 		"updatedAt":         item.UpdatedAt,
 	}

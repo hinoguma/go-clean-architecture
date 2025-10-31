@@ -6,7 +6,6 @@ import (
 	"app/threelayeredarchitecture/crosscuttinglayer"
 	"context"
 	"errors"
-	"time"
 )
 
 type TransferServiceIF interface {
@@ -38,152 +37,206 @@ func NewTransferService(
 }
 
 func (service *TransferService) Execute(ctx context.Context, req model.TransferRequest) model.TransferResult {
+	// make sure idempotency
+	result, hasDone := service.makeSureIdempotency(ctx, req)
+	if hasDone {
+		return result
+	}
+	if result.Err != nil {
+		return result
+	}
 
-	// rollback mechanism is omitted for simplicity
-	// my current strategy would be... Maiking WAL log struct and if some error happens, we can rollback to the previous state
+	// transaction begins and lock transaction record
+	txPtr, record, err := service.beginTransaction(ctx, result.TransactionRecord)
+	if err != nil {
+		if txPtr != nil {
+			tmpErr := service.transactionManager.Rollback(ctx, *txPtr)
+			if tmpErr != nil {
+				err = errors.Join(err, tmpErr)
+			}
+		}
+		result.Err = err
+		result.ErrorReason = model.TransferErrorReasonInternal
+		return result
+	}
+
+	// transaction process
+	tx := *txPtr
+	result = service.executeTransactionProcess(ctx, record, tx)
+	if result.Err == nil {
+		// success
+		return result
+	}
+
+	// if failed, rollback
+	tmpErr := service.transactionManager.Rollback(ctx, tx)
+	if tmpErr != nil {
+		result.Err = errors.Join(err, tmpErr)
+	}
+	// update transaction record status to failed
+	result.TransactionRecord.UpdatedAt = crosscuttinglayer.Now()
+	result.TransactionRecord.SetTransferStatus(
+		result.ErrorReason.TransferStatus(),
+	)
+	tmpErr = service.transactionRecordRepository.Put(ctx, result.TransactionRecord.DTO())
+	if tmpErr != nil {
+		result.Err = errors.Join(err, tmpErr)
+	}
+	// error
+	return result
+}
+
+func (service *TransferService) makeSureIdempotency(
+	ctx context.Context, req model.TransferRequest,
+) (model.TransferResult, bool) {
 	result := model.TransferResult{}
-
 	// check for idempotency
 	recordDTO, err := service.transactionRecordRepository.GetByIdempotencyKey(ctx, req.IdempotencyKey)
-	isNotFoundIdempotency := crosscuttinglayer.IsDataNotFound(err)
+	isNotFoundIdempotency := !crosscuttinglayer.IsDataNotFound(err)
 	if err != nil && !isNotFoundIdempotency {
 		result.Err = crosscuttinglayer.ErrLift(err, ctx)
 		result.ErrorReason = model.TransferErrorReasonInternal
-		return result
+		return result, false
 	}
 	// if not found, make transaction record
 	if !isNotFoundIdempotency {
-		result.TransactionRecord.SetFromDTO(recordDTO)
-		if !result.TransactionRecord.IsConsistantRequest(req) {
+		// found idempotency
+		record := model.TransactionRecord{}
+		record.SetFromDTO(recordDTO)
+		if !record.IsConsistentRequest(req) {
 			appErr := crosscuttinglayer.NewAppUtilError("not consist request", ctx)
 			appErr.Attr("record", result.TransactionRecord).
 				Attr("request", req)
+			result.TransactionRecord = record
 			result.Err = appErr
 			result.ErrorReason = model.TransferErrorReasonNotConsistRequest
-			return result
+			return result, false
 		}
+		// return the same result if already completed
 		if result.TransactionRecord.IsCompleted() {
+			result.TransactionRecord = record
 			result.Err = nil
 			result.ErrorReason = ""
-			return result
+			return result, true
 		}
+		// if not completed, maybe failed before, return the record and go to retry
+		return model.TransferResult{
+			TransactionRecord: record,
+			Err:               nil,
+			ErrorReason:       "",
+		}, false
 	}
+
+	// not found idempotency -> first time request
 	// create transaction record
-	result.TransactionRecord = model.NewTransferRecord(
-		crosscuttinglayer.IssueRandomStrID(), req, time.Now(),
+	record := model.NewTransferRecord(
+		crosscuttinglayer.IssueRandomStrID(), req, crosscuttinglayer.Now(),
 	)
-	err = service.transactionRecordRepository.Create(ctx, result.TransactionRecord.DTO())
+	err = service.transactionRecordRepository.Create(ctx, record.DTO())
 	if err != nil {
 		result.Err = crosscuttinglayer.ErrLift(err, ctx)
 		result.ErrorReason = model.TransferErrorReasonInternal
-		return result
+		return result, false
 	}
-	// if found
-	// if request information does not match, return error
 
-	// Transaction Begins
+	return model.TransferResult{
+		TransactionRecord: record,
+		Err:               nil,
+		ErrorReason:       "",
+	}, false
+}
+
+func (service *TransferService) beginTransaction(
+	ctx context.Context, record model.TransactionRecord,
+) (*appinfraadapterlayer.Transaction, model.TransactionRecord, error) {
 	txBeginReq := appinfraadapterlayer.NewBeginTransactionRequest()
 	tx, err := service.transactionManager.Begin(ctx, txBeginReq)
 	if err != nil {
+		return nil, model.TransactionRecord{}, crosscuttinglayer.ErrLift(err, ctx)
+	}
+	// lock transaction record
+	recordDTO, err := service.transactionRecordRepository.Lock(ctx, record.ID, tx)
+	if err != nil {
+		return &tx, model.TransactionRecord{}, crosscuttinglayer.ErrLift(err, ctx)
+	}
+	record.SetFromDTO(recordDTO)
+	return &tx, record, nil
+}
+
+func (service *TransferService) executeTransactionProcess(
+	ctx context.Context, record model.TransactionRecord, tx appinfraadapterlayer.Transaction,
+) model.TransferResult {
+	result := model.TransferResult{
+		TransactionRecord: record,
+		ErrorReason:       model.TransferErrorReasonInternal,
+		Err:               errors.New("unknown error"),
+	}
+
+	// lock accounts
+	fromAccount, err := service.bankAccountLockService.Lock(ctx, record.FromBankAccountID, tx)
+	if err != nil {
+		result.Err = crosscuttinglayer.ErrLift(err, ctx)
+		if model.IsNotFoundErrInInfraAdapter(err) {
+			result.ErrorReason = model.TransferErrorReasonFromBankAccountNotFound
+		}
+		return result
+	}
+	toAccount, err := service.bankAccountLockService.Lock(ctx, record.ToBankAccountID, tx)
+	if err != nil {
+		result.Err = crosscuttinglayer.ErrLift(err, ctx)
+		if model.IsNotFoundErrInInfraAdapter(err) {
+			result.ErrorReason = model.TransferErrorReasonToBankAccountNotFound
+		}
+		return result
+	}
+
+	// check balance
+	if fromAccount.Balance.IsLessThan(record.Money) {
+		err = errors.New("insufficient balance")
+		result.Err = crosscuttinglayer.ErrLift(err, ctx)
+		result.ErrorReason = model.TransferErrorReasonInsufficientBalance
+		return result
+	}
+
+	// withdraw from the fromAccount
+	fromAccount.Withdraw(record.Money, crosscuttinglayer.Now())
+	err = service.bankAccountRepository.TxPut(ctx, fromAccount.DTO(), tx)
+	if err != nil {
 		result.Err = crosscuttinglayer.ErrLift(err, ctx)
 		result.ErrorReason = model.TransferErrorReasonInternal
 		return result
 	}
 
-	// Transaction Process
-	result = func() model.TransferResult {
-		// lock accounts
-		fromAccount, err := service.bankAccountLockService.Lock(ctx, req.FromBankAccountID, tx)
-		if err != nil {
-			result.Err = crosscuttinglayer.ErrLift(err, ctx)
-			result.ErrorReason = model.TransferErrorReasonInternal
-			if model.IsNotFoundErrInInfraAdapter(err) {
-				result.ErrorReason = model.TransferErrorReasonBankAccountNotFound
-			}
-			return result
-		}
-		toAccount, err := service.bankAccountLockService.Lock(ctx, req.ToBankAccountID, tx)
-		if err != nil {
-			result.Err = crosscuttinglayer.ErrLift(err, ctx)
-			result.ErrorReason = model.TransferErrorReasonInternal
-			if model.IsNotFoundErrInInfraAdapter(err) {
-				result.ErrorReason = model.TransferErrorReasonBankAccountNotFound
-			}
-			return result
-		}
-
-		// check balance
-		if fromAccount.Balance.IsLessThan(req.Money) {
-			err = errors.New("insufficient balance")
-			result.TransactionRecord.SetTransferStatus(model.TransferStatusInCheckBalanceFailed)
-			err2 := service.transactionRecordRepository.TxPut(ctx, record.DTO(), tx)
-			if err2 != nil {
-				err = errors.Join(err, err2)
-			}
-			result.Err = crosscuttinglayer.ErrLift(err, ctx)
-			result.ErrorReason = model.TransferErrorReasonInsufficientBalance
-			return result
-		}
-
-		// withdraw from the fromAccount
-		result.TransactionRecord.SetTransferStatus(
-			model.TransferStatusInTransfer,
-		)
-		result.TransactionRecord.UpdatedAt = time.Now()
-		err = service.transactionRecordRepository.TxPut(ctx, result.TransactionRecord.DTO(), tx)
-		if err != nil {
-			result.Err = crosscuttinglayer.ErrLift(err, ctx)
-			result.ErrorReason = model.TransferErrorReasonInternal
-			return result
-		}
-		fromAccount.Withdraw(req.Money, time.Now())
-		err = service.bankAccountRepository.TxPut(ctx, fromAccount.DTO(), tx)
-		if err != nil {
-			result.Err = crosscuttinglayer.ErrLift(err, ctx)
-			result.ErrorReason = model.TransferErrorReasonInternal
-			return result
-		}
-
-		// deposit to the toAccount
-		toAccount.Deposit(req.Money, time.Now())
-		err = service.bankAccountRepository.TxPut(ctx, toAccount.DTO(), tx)
-		if err != nil {
-			result.Err = crosscuttinglayer.ErrLift(err, ctx)
-			result.ErrorReason = model.TransferErrorReasonInternal
-			return result
-		}
-
-		// set transfer completed
-		result.TransactionRecord.SetTransferStatus(model.TransferStatusCompleted)
-		result.TransactionRecord.UpdatedAt = time.Now()
-		err = service.transactionRecordRepository.TxPut(ctx, result.TransactionRecord.DTO(), tx)
-		if err != nil {
-			result.Err = crosscuttinglayer.ErrLift(err, ctx)
-			result.ErrorReason = model.TransferErrorReasonInternal
-			return result
-		}
-
-		// Transaction Commit
-		err = service.transactionManager.Commit(ctx, tx)
-		if err != nil {
-			result.Err = crosscuttinglayer.ErrLift(err, ctx)
-			result.ErrorReason = model.TransferErrorReasonInternal
-			return result
-		}
-		result.Err = nil
-		result.ErrorReason = ""
+	// deposit to the toAccount
+	toAccount.Deposit(record.Money, crosscuttinglayer.Now())
+	err = service.bankAccountRepository.TxPut(ctx, toAccount.DTO(), tx)
+	if err != nil {
+		result.Err = crosscuttinglayer.ErrLift(err, ctx)
+		result.ErrorReason = model.TransferErrorReasonInternal
 		return result
-	}()
+	}
 
-	// If Failed, Rollback
-	if result.Err != nil {
-		tmpErr := service.transactionManager.Rollback(ctx, tx)
-		if tmpErr != nil {
-			result.Err = errors.Join(err, tmpErr)
-		}
+	// set transfer completed
+	record.SetTransferStatus(model.TransferStatusCompleted)
+	record.UpdatedAt = crosscuttinglayer.Now()
+	err = service.transactionRecordRepository.TxPut(ctx, record.DTO(), tx)
+	if err != nil {
+		result.Err = crosscuttinglayer.ErrLift(err, ctx)
+		result.ErrorReason = model.TransferErrorReasonInternal
+		return result
+	}
+
+	// Transaction Commit
+	err = service.transactionManager.Commit(ctx, tx)
+	if err != nil {
+		result.Err = crosscuttinglayer.ErrLift(err, ctx)
+		result.ErrorReason = model.TransferErrorReasonInternal
 		return result
 	}
 
 	// success
+	result.TransactionRecord = record
+	result.Err = nil
+	result.ErrorReason = ""
 	return result
 }

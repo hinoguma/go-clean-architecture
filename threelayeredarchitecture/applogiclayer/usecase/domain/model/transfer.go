@@ -38,7 +38,6 @@ type TransactionRecord struct {
 	ToBankAccountID   string
 	Money             Money
 	TransferStatus    TransferStatus
-	TransferLogs      []TransferLog
 	DataItem
 }
 
@@ -50,6 +49,7 @@ func (record *TransactionRecord) SetFromDTO(dto appinfraadapterlayer.Transaction
 	record.ToBankAccountID = dto.ToBankAccountID
 	record.Money.Amount = dto.Amount
 	record.Money.Currency = Currency(dto.Currency)
+	record.TransferStatus = TransferStatus(dto.TransferStatus)
 	record.DataItem.SetFromDTO(dto.DatabaseItem)
 	return record
 }
@@ -68,7 +68,7 @@ func (record TransactionRecord) IsCompleted() bool {
 	return record.TransferStatus == TransferStatusCompleted
 }
 
-func (record TransactionRecord) IsConsistantRequest(req TransferRequest) bool {
+func (record TransactionRecord) IsConsistentRequest(req TransferRequest) bool {
 	return record.IdempotencyKey == req.IdempotencyKey &&
 		record.FromBankAccountID == req.FromBankAccountID &&
 		record.ToBankAccountID == req.ToBankAccountID &&
@@ -82,6 +82,7 @@ func NewTransferRecord(
 ) TransactionRecord {
 	item := TransactionRecord{
 		ID:                id,
+		TransferStatus:    TransferStatusPrepare,
 		IdempotencyKey:    req.IdempotencyKey,
 		FromBankAccountID: req.FromBankAccountID,
 		ToBankAccountID:   req.ToBankAccountID,
@@ -121,12 +122,6 @@ const (
 	TransferActionStatusFailed     TransferActionStatus = "FAILED"
 )
 
-type TransferLog struct {
-	ActionType   TransferActionType
-	ActionStatus TransferActionStatus
-	Timestamp    time.Time
-}
-
 type TransferRequest struct {
 	IdempotencyKey    string
 	FromBankAccountID string
@@ -142,10 +137,29 @@ type TransferResult struct {
 
 type TransferErrorReason string
 
+func (value TransferErrorReason) TransferStatus() TransferStatus {
+	switch value {
+	case TransferErrorReasonNotConsistRequest:
+		return TransferStatusUnknownFailed
+	case TransferErrorReasonFromBankAccountNotFound:
+		return TransferStatusFromBankAccountFailed
+	case TransferErrorReasonToBankAccountNotFound:
+		return TransferStatusToBankAccountFailed
+	case TransferErrorReasonBankCustomerNotFound:
+		return TransferStatusUnknownFailed
+	case TransferErrorReasonInsufficientBalance:
+		return TransferStatusInCheckBalanceFailed
+	case TransferErrorReasonInternal:
+		return TransferStatusUnknownFailed
+	}
+	return TransferStatusUnknownFailed
+}
+
 const (
-	TransferErrorReasonNotConsistRequest    TransferErrorReason = "NOT_CONSIST_REQUEST"
-	TransferErrorReasonBankAccountNotFound  TransferErrorReason = "BANK_ACCOUNT_NOT_FOUND"
-	TransferErrorReasonBankCustomerNotFound TransferErrorReason = "BANK_CUSTOMER_NOT_FOUND"
-	TransferErrorReasonInsufficientBalance  TransferErrorReason = "INSUFFICIENT_BALANCE"
-	TransferErrorReasonInternal             TransferErrorReason = "INTERNAL_ERROR"
+	TransferErrorReasonNotConsistRequest       TransferErrorReason = "NOT_CONSIST_REQUEST"
+	TransferErrorReasonFromBankAccountNotFound TransferErrorReason = "FROM_BANK_ACCOUNT_NOT_FOUND"
+	TransferErrorReasonToBankAccountNotFound   TransferErrorReason = "TO_BANK_ACCOUNT_NOT_FOUND"
+	TransferErrorReasonBankCustomerNotFound    TransferErrorReason = "BANK_CUSTOMER_NOT_FOUND"
+	TransferErrorReasonInsufficientBalance     TransferErrorReason = "INSUFFICIENT_BALANCE"
+	TransferErrorReasonInternal                TransferErrorReason = "INTERNAL_ERROR"
 )

@@ -7,6 +7,7 @@ import (
 
 type TimeGenerator interface {
 	GetTz() time.Location
+	Now() time.Time
 	NowTs() crosscuttinglayer.UnixTimestamp
 	NowTsMills() crosscuttinglayer.UnixTimestampMillis
 }
