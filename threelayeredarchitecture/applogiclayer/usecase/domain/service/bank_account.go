@@ -17,7 +17,7 @@ type BankAccountLockService struct {
 
 func NewBankAccountLockService(
 	bankAccountRepository appinfraadapterlayer.BankAccountRepositoryAdapterIF,
-) *BankAccountLockService {
+) BankAccountLockServiceIF {
 	return &BankAccountLockService{
 		bankAccountRepository: bankAccountRepository,
 	}

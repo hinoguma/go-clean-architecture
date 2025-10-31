@@ -52,7 +52,7 @@ type TxOptions struct {
 	Connection Pool
  ********************************************/
 
-var txConMngSingle TxConnectionPoolIF = newTxConnectionManager()
+var txConMngSingle TxConnectionPoolIF = NewTxConnectionManager()
 
 type TransactionConnection struct {
 	id string
@@ -76,7 +76,7 @@ type txConnectionManager struct {
 	mu          sync.Mutex
 }
 
-func newTxConnectionManager() TxConnectionPoolIF {
+func NewTxConnectionManager() TxConnectionPoolIF {
 	return &txConnectionManager{
 		connections: make(map[string]TransactionConnection),
 		mu:          sync.Mutex{},

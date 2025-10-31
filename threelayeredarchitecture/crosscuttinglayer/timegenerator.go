@@ -40,6 +40,10 @@ func (t StdTimeGenerator) GetTz() time.Location {
 	return t.tz
 }
 
+func (t StdTimeGenerator) Now() time.Time {
+	return time.Now().In(&t.tz)
+}
+
 func (t StdTimeGenerator) NowTs() UnixTimestamp {
 	return UnixTimestamp(time.Now().In(&t.tz).Unix())
 }

@@ -5,14 +5,14 @@ import (
 	"app/experimentarchitecture/crosscutting/utils"
 )
 
-type BankUserAuthService interface {
+type BankUserAuthServiceIF interface {
 	Authenticate(req model.BankUserAuthRequest) (model.BankUser, error)
 }
 
 type bankAccountUserAuthService struct {
 }
 
-func NewBankUserAuthService() BankUserAuthService {
+func NewBankUserAuthService() BankUserAuthServiceIF {
 	return &bankAccountUserAuthService{}
 }
 

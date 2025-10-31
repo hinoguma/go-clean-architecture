@@ -5,9 +5,59 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 )
 
 var TxNotFound = errors.New("transaction not found")
+
+/**
+ * SQL DB
+ */
+var postgreDB *sql.DB
+
+type DBConfig struct {
+	Host     string
+	Port     int
+	User     string
+	Password string
+	DBName   string
+	SSLMode  string
+}
+
+func (conf DBConfig) DSN() string {
+	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		conf.Host, conf.Port, conf.User, conf.Password, conf.DBName, conf.SSLMode,
+	)
+}
+
+func InitDB(conf DBConfig) error {
+	db, err := sql.Open("postgres", conf.DSN())
+	if err != nil {
+		return crosscuttinglayer.ErrLift(err, context.TODO())
+	}
+	if err := db.Ping(); err != nil {
+		return crosscuttinglayer.ErrLift(err, context.TODO())
+	}
+	db.SetMaxOpenConns(5)
+	db.SetMaxIdleConns(2)
+	postgreDB = db
+	return nil
+}
+
+func CloseDB() error {
+	if postgreDB != nil {
+		return postgreDB.Close()
+	}
+	return nil
+}
+
+func GetPostgreDB() *sql.DB {
+	return postgreDB
+}
+
+/**
+ * PostgreSQL Client
+ */
 
 type PostgreSQLClient struct {
 	client *sql.DB

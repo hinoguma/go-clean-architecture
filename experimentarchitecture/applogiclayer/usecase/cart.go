@@ -35,7 +35,7 @@ func NewAddItemToCartUseCase(
 
 type addItemToCartUseCase struct {
 	// auth service
-	bankUserAuthService       service.BankUserAuthService
+	bankUserAuthService       service.BankUserAuthServiceIF
 	productItemInfoRepository appinfrainterfacelayer.ProductItemInfoRepository
 	customerUserRepository    appinfrainterfacelayer.CustomerUserRepository
 	shoppingCartRepository    appinfrainterfacelayer.ShoppingCartRepository
