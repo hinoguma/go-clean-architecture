@@ -45,11 +45,11 @@ func main() {
 
 func handler(ctx context.Context, event events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 
-	// app infra
-
 	switch event.RawPath {
 	case "/transfer":
-		return transferHandler(ctx, event)
+		if event.RequestContext.HTTP.Method == "POST" {
+			return transferHandler(ctx, event)
+		}
 	default:
 		return events.APIGatewayV2HTTPResponse{
 			StatusCode: 404,
