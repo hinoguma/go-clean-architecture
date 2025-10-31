@@ -22,11 +22,12 @@ type TransferUsecaseResponse struct {
 }
 
 type TransferUsecaseErrorReason struct {
-	AuthenticateError   bool
-	ValidateError       bool
-	BankAccountNotFound bool
-	InsufficientBalance bool
-	InternalError       bool
+	AuthenticateError       bool
+	ValidateError           bool
+	FromBankAccountNotFound bool
+	ToBankAccountNotFound   bool
+	InsufficientBalance     bool
+	InternalError           bool
 }
 
 type TransferUsecaseIF interface {
@@ -87,8 +88,10 @@ func (uc *TransferUsecase) Execute(ctx context.Context, req TransferUsecaseReque
 	if transferRes.Err != nil {
 		reason := TransferUsecaseErrorReason{}
 		switch transferRes.ErrorReason {
-		case model.TransferErrorReasonBankAccountNotFound:
-			reason.BankAccountNotFound = true
+		case model.TransferErrorReasonFromBankAccountNotFound:
+			reason.FromBankAccountNotFound = true
+		case model.TransferErrorReasonToBankAccountNotFound:
+			reason.ToBankAccountNotFound = true
 		case model.TransferErrorReasonInsufficientBalance:
 			reason.InsufficientBalance = true
 		default:

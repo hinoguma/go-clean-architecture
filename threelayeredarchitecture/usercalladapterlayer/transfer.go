@@ -31,21 +31,23 @@ func NewTransferAdapterResponseByUsecaseRes(ucRes usecase.TransferUsecaseRespons
 		TransactionID: "",
 		Err:           ucRes.Err,
 		ErrorReason: TransferAdapterErrorReason{
-			AuthError:           ucRes.ErrReason.AuthenticateError,
-			ValidateError:       ucRes.ErrReason.ValidateError,
-			BankAccountNotFound: ucRes.ErrReason.BankAccountNotFound,
-			InsufficientBalance: ucRes.ErrReason.InsufficientBalance,
-			InternalError:       ucRes.ErrReason.InternalError,
+			AuthError:               ucRes.ErrReason.AuthenticateError,
+			ValidateError:           ucRes.ErrReason.ValidateError,
+			FromBankAccountNotFound: ucRes.ErrReason.FromBankAccountNotFound,
+			ToBankAccountNotFound:   ucRes.ErrReason.ToBankAccountNotFound,
+			InsufficientBalance:     ucRes.ErrReason.InsufficientBalance,
+			InternalError:           ucRes.ErrReason.InternalError,
 		},
 	}
 }
 
 type TransferAdapterErrorReason struct {
-	AuthError           bool
-	ValidateError       bool
-	BankAccountNotFound bool
-	InsufficientBalance bool
-	InternalError       bool
+	AuthError               bool
+	ValidateError           bool
+	FromBankAccountNotFound bool
+	ToBankAccountNotFound   bool
+	InsufficientBalance     bool
+	InternalError           bool
 }
 
 type TransferAdapterIF interface {

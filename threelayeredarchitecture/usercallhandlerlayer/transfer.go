@@ -138,8 +138,9 @@ func (handler *TransferHandler) Execute(ctx context.Context, event events.APIGat
  ***************************************/
 
 const (
-	CodeBankAccountNotFound = 460
-	CodeInsufficientBalance = 461
+	CodeFromBankAccountNotFound = 460
+	CodeToBankAccountNotFound   = 461
+	CodeInsufficientBalance     = 462
 )
 
 func (handler TransferHandler) responseByAdapterResponse(adapterRes usercalladapterlayer.TransferAdapterResponse) (events.APIGatewayV2HTTPResponse, error) {
@@ -159,9 +160,15 @@ func (handler TransferHandler) responseByAdapterResponse(adapterRes usercalladap
 		return NewValidateErrResponseUnderAdapter(), adapterRes.Err
 	}
 
-	if adapterRes.ErrorReason.BankAccountNotFound {
+	if adapterRes.ErrorReason.FromBankAccountNotFound {
 		return events.APIGatewayV2HTTPResponse{
-			StatusCode: CodeBankAccountNotFound,
+			StatusCode: CodeFromBankAccountNotFound,
+		}, adapterRes.Err
+	}
+	
+	if adapterRes.ErrorReason.ToBankAccountNotFound {
+		return events.APIGatewayV2HTTPResponse{
+			StatusCode: CodeToBankAccountNotFound,
 		}, adapterRes.Err
 	}
 
