@@ -84,7 +84,7 @@ func (uc *TransferUsecase) Execute(ctx context.Context, req TransferUsecaseReque
 	}
 	transferRes := uc.transferService.Execute(ctx, transferReq)
 
-	// Error Handling
+	// ExtendError Handling
 	if transferRes.Err != nil {
 		reason := TransferUsecaseErrorReason{}
 		switch transferRes.ErrorReason {
